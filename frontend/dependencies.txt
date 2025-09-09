@@ -1,0 +1,75 @@
+# Frontend Dependencies - AgentAPI
+# Equivalente ao requirements.txt do Python para Node.js
+# Use: npm install (lê automaticamente do package.json)
+
+# === RUNTIME DEPENDENCIES ===
+
+# Framework e Core
+next@14.0.4                    # Framework React com App Router
+react@^18.2.0                  # Biblioteca React
+react-dom@^18.2.0              # React DOM rendering
+
+# HTTP e API
+axios@^1.6.2                   # Cliente HTTP para API calls
+
+# Formulários e Validação
+react-hook-form@^7.48.2        # Gerenciamento de formulários performático
+@hookform/resolvers@^3.3.2     # Resolvers para react-hook-form
+zod@^3.22.4                    # Schema validation
+
+# UI e Ícones
+lucide-react@^0.294.0          # Ícones SVG modernos
+react-hot-toast@^2.4.1         # Sistema de notificações
+
+# Utilitários
+js-cookie@^3.0.5               # Gerenciamento de cookies
+clsx@^2.0.0                    # Classes CSS condicionais
+tailwind-merge@^2.2.0          # Merge de classes Tailwind
+
+# === DEVELOPMENT DEPENDENCIES ===
+
+# TypeScript
+typescript@^5.3.3              # Linguagem TypeScript
+@types/node@^20.10.0           # Tipos para Node.js
+@types/react@^18.2.45          # Tipos para React
+@types/react-dom@^18.2.18      # Tipos para React DOM
+@types/js-cookie@^3.0.6        # Tipos para js-cookie
+
+# Styling
+tailwindcss@^3.3.6             # Framework CSS utilitário
+autoprefixer@^10.4.16          # PostCSS plugin para vendor prefixes
+postcss@^8.4.32                # Processador CSS
+
+# Linting e Quality
+eslint@^8.56.0                 # Linter JavaScript/TypeScript
+eslint-config-next@14.0.4      # Configuração ESLint para Next.js
+
+# === INSTALLATION COMMANDS ===
+
+# Instalar todas as dependências:
+# npm install
+
+# Instalar dependência específica:
+# npm install <package-name>
+
+# Instalar dependência de desenvolvimento:
+# npm install --save-dev <package-name>
+
+# Atualizar dependências:
+# npm update
+
+# Verificar dependências desatualizadas:
+# npm outdated
+
+# === PACKAGE SIZES (aproximado) ===
+# next: ~15MB
+# react + react-dom: ~2MB
+# axios: ~500KB
+# tailwindcss: ~20MB (dev)
+# typescript: ~30MB (dev)
+# Total: ~200MB (incluindo node_modules)
+
+# === COMPATIBILITY ===
+# Node.js: >=18.0.0
+# npm: >=8.0.0
+# Browser: Chrome 64+, Firefox 67+, Safari 12+, Edge 79+

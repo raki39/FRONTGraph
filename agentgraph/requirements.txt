@@ -1,0 +1,36 @@
+# Core LangGraph and LangChain
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-openai>=0.2.0
+langchain-anthropic>=0.2.0
+langchain-google-genai>=2.0.0
+langchain-community>=0.3.0
+langchain-core>=0.3.0
+
+# LangSmith for observability and tracing
+langsmith>=0.1.39
+
+# Celery and Redis for distributed task queue
+celery>=5.3.0
+redis>=5.0.0
+flower>=2.0.0
+
+# Database and Data Processing
+pandas>=2.0.0
+sqlalchemy>=2.0.0
+numpy>=1.24.0
+psycopg2-binary>=2.9.0
+pgvector>=0.2.0
+
+# AI/ML Libraries
+huggingface_hub>=0.20.0
+
+# Graph Generation Libraries
+matplotlib>=3.7.0
+pillow>=10.0.0
+
+# Web Interface
+gradio>=4.0.0
+
+# Utilities
+python-dotenv>=1.0.0

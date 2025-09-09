@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # Serviço Redis para Celery
+  redis:
+    image: redis:7-alpine
+    container_name: agentgraph-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Aplicação principal
+  agentgraph:
+    build: .
+    container_name: agentgraph-app
+    ports:
+      - "7860:7860"  # Gradio
+      - "5555:5555"  # Flower Dashboard
+    environment:
+      # Identificação do ambiente Docker
+      - DOCKER_CONTAINER=true
+
+      # Configurações para link público
+      - GRADIO_SHARE=true
+      - GRADIO_PORT=7860
+
+      # API Keys (definir no .env)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+
+      # LangSmith (opcional)
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY}
+      - LANGSMITH_TRACING=${LANGSMITH_TRACING:-false}
+      - LANGSMITH_PROJECT=${LANGSMITH_PROJECT:-agentgraph-docker}
+
+      # Configurações da aplicação
+      - DEFAULT_MODEL=GPT-4o-mini
+      - MAX_ITERATIONS=40
+      - TEMPERATURE=0
+      - LOG_LEVEL=INFO
+
+      # Configurações do Celery para Docker
+      - CELERY_ENABLED=true
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - CELERY_WORKER_CONCURRENCY=4
+      - CELERY_WORKER_COUNT=2
+      - FLOWER_PORT=5555
+      # Força pool prefork no Docker
+      - CELERY_POOL=prefork
+      # Configurações do Gradio para Docker
+      - GRADIO_MAX_THREADS=50
+    volumes:
+      # Persistir apenas uploads
+      - ./uploaded_data:/app/uploaded_data
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    # Permite acesso ao PostgreSQL do host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+# Volumes para persistência
+volumes:
+  redis_data:
+    driver: local

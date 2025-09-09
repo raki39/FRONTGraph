@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Testes Massivos - AgentGraph</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Design System - Inspirado em Sistema de Monitoramento */
+        :root {
+            --bg-dark: #1a1d29;
+            --bg-darker: #151821;
+            --bg-card: #242938;
+            --bg-card-hover: #2a2f42;
+
+            --primary-blue: #4a9eff;
+            --primary-blue-dark: #3b82f6;
+            --success-green: #10b981;
+            --warning-orange: #f59e0b;
+            --danger-red: #ef4444;
+            --info-cyan: #06b6d4;
+
+            --text-primary: #ffffff;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --text-accent: #60a5fa;
+
+            --border-color: #374151;
+            --border-radius: 8px;
+            --border-radius-lg: 12px;
+
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+        }
+
+        /* Layout Principal com fonte profissional */
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            font-weight: 400;
+            letter-spacing: 0.01em;
+        }
+
+        .container-fluid {
+            padding: 0;
+            background: var(--bg-dark);
+        }
+
+        /* Sidebar Estilo Sistema de Monitoramento */
+        .sidebar {
+            background: var(--bg-darker);
+            min-height: 100vh;
+            border-right: 1px solid var(--border-color);
+            box-shadow: var(--shadow-lg);
+            padding: 1.5rem 1rem;
+            position: relative;
+        }
+
+        .sidebar h4 {
+            color: var(--text-primary);
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            letter-spacing: 0.02em;
+        }
+
+        .sidebar h4 i {
+            color: var(--primary-blue);
+            font-size: 1rem;
+        }
+
+        .sidebar h6 {
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            margin-top: 1.5rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* Formulários sem bordas - mesmo estilo do sidebar */
+        .form-control, .form-select,
+        .sidebar .form-control,
+        .sidebar .form-select {
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+            border-radius: 6px !important;
+            font-size: 0.9rem !important;
+            padding: 0.5rem 0.75rem !important;
+            transition: background-color 0.2s ease !important;
+        }
+
+        .form-control::placeholder,
+        .sidebar .form-control::placeholder {
+            color: var(--text-muted) !important;
+            font-size: 0.8rem !important;
+        }
+
+        .form-control:focus, .form-select:focus,
+        .sidebar .form-control:focus,
+        .sidebar .form-select:focus {
+            background: var(--bg-card-hover) !important;
+            color: var(--text-primary) !important;
+            outline: none !important;
+        }
+
+        /* Main Content - fontes menores e melhor disposição */
+        .main-content {
+            background: var(--bg-dark) !important;
+            min-height: 100vh !important;
+            padding: 1.5rem !important;
+            font-size: 0.875rem !important;
+        }
+
+        /* Títulos menores */
+        .main-content h1 {
+            font-size: 1.25rem !important;
+            font-weight: 600 !important;
+            margin-bottom: 1rem !important;
+        }
+
+        .main-content h2 {
+            font-size: 1.1rem !important;
+            font-weight: 600 !important;
+            margin-bottom: 0.75rem !important;
+        }
+
+        .main-content h3 {
+            font-size: 1rem !important;
+            font-weight: 500 !important;
+            margin-bottom: 0.5rem !important;
+        }
+
+        /* Texto geral menor */
+        .main-content p, .main-content div, .main-content span {
+            font-size: 0.875rem !important;
+            line-height: 1.4 !important;
+        }
+
+        /* Labels menores */
+        .main-content label {
+            font-size: 0.75rem !important;
+            font-weight: 500 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            color: var(--text-secondary) !important;
+        }
+
+        /* Container spacing */
+        .content-section {
+            margin-bottom: 2rem;
+        }
+
+        .content-section:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Header Dashboard sem bordas */
+        .dashboard-header {
+            background: var(--bg-card) !important;
+            border-radius: 8px !important;
+            padding: 1rem 1.5rem !important;
+            margin-bottom: 1rem !important;
+        }
+
+        .dashboard-header h2 {
+            color: var(--text-primary) !important;
+            font-weight: 600 !important;
+            margin: 0 !important;
+            font-size: 1.1rem !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.5rem !important;
+        }
+
+        .dashboard-header h2 i {
+            color: var(--primary-blue) !important;
+            font-size: 1rem !important;
+        }
+
+        /* REDESIGN REAL - Sistema Moderno SEM BORDAS */
+
+        /* Reset completo - REMOVER TODAS AS BORDAS */
+        * {
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        /* Cards modernos sem bordas - inspirado na imagem */
+        .card {
+            background: var(--bg-card) !important;
+            border-radius: 8px !important;
+            margin-bottom: 1rem !important;
+            padding: 0 !important;
+            overflow: hidden;
+        }
+
+        .card-header {
+            background: var(--bg-card) !important;
+            color: var(--text-secondary) !important;
+            font-weight: 500 !important;
+            font-size: 0.75rem !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            padding: 0.75rem 1rem !important;
+            margin-bottom: 0 !important;
+        }
+
+        .card-body {
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+            padding: 1rem !important;
+            font-size: 0.875rem !important;
+        }
+
+        /* Metric cards sem bordas */
+        .metric-card {
+            background: var(--bg-card) !important;
+            border-radius: 8px !important;
+            padding: 1rem !important;
+            margin: 0.5rem 0 !important;
+            text-align: center;
+            transition: background-color 0.2s ease;
+        }
+
+
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+            color: var(--primary-blue);
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .test-group-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            margin: 0.75rem 0;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s ease;
+        }
+
+
+
+        /* Badges tamanho padrão */
+        .badge, .status-badge {
+            padding: 0.375rem 0.75rem !important;
+            border-radius: 6px !important;
+            font-weight: 500 !important;
+            font-size: 0.75rem !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 0.375rem !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+        }
+
+        /* Checkboxes menores no sidebar */
+        .sidebar input[type="checkbox"] {
+            transform: scale(0.85) !important;
+            margin-right: 0.5rem !important;
+        }
+
+        .sidebar .form-check-label {
+            font-size: 0.9rem !important;
+            color: var(--text-secondary) !important;
+            font-weight: 500 !important;
+        }
+
+        .status-idle {
+            background: var(--text-muted);
+            color: var(--text-primary);
+            border-color: var(--text-muted);
+        }
+        .status-running {
+            background: var(--success-green);
+            color: var(--text-primary);
+            border-color: var(--success-green);
+            animation: pulse 2s infinite;
+        }
+        .status-completed {
+            background: var(--primary-blue);
+            color: var(--text-primary);
+            border-color: var(--primary-blue);
+        }
+        .status-error {
+            background: var(--danger-red);
+            color: var(--text-primary);
+            border-color: var(--danger-red);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* Containers */
+        .progress-container {
+            display: none;
+            margin: 1rem 0;
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .results-container {
+            display: none;
+            margin: 1rem 0;
+        }
+
+        /* Botões sem bordas - estilo sistemático */
+        .btn {
+            border-radius: 6px !important;
+            font-weight: 500 !important;
+            padding: 0.5rem 1rem !important;
+            transition: all 0.2s ease !important;
+            font-size: 0.75rem !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px) !important;
+        }
+
+        .btn-primary {
+            background: var(--primary-blue) !important;
+            color: white !important;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-blue-dark);
+            border-color: var(--primary-blue-dark);
+            color: var(--text-primary);
+        }
+
+        .btn-success {
+            background: var(--success-green);
+            border-color: var(--success-green);
+            color: var(--text-primary);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, var(--success-green) 0%, #0d9488 100%) !important;
+            border-color: var(--success-green);
+            color: var(--text-primary);
+        }
+
+        .btn-warning:hover {
+            background: var(--success-green);
+            color: white !important;
+        }
+
+        /* Botões de cancelar com borda azul */
+        #cancelCurrentBtn, #skipStuckBtn, #cancelAllBtn {
+            border: 2px solid var(--primary-blue) !important;
+        }
+
+        #cancelCurrentBtn:hover, #skipStuckBtn:hover, #cancelAllBtn:hover {
+            border: 2px solid var(--primary-blue) !important;
+        }
+
+        .btn-danger {
+            background: var(--danger-red);
+            border-color: var(--danger-red);
+            color: var(--text-primary);
+        }
+
+        /* Progress Bar Estilo Sistema */
+        .progress {
+            height: 8px;
+            border-radius: 4px;
+            background: var(--bg-darker);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .progress-bar {
+            background: var(--primary-blue);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            position: relative;
+        }
+
+        /* Alertas */
+        .alert {
+            border-radius: var(--border-radius);
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            padding: 1rem;
+            font-size: 0.875rem;
+        }
+
+        /* Formulários */
+        .form-control, .form-select {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: var(--border-radius);
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+        }
+
+        .form-control:focus, .form-select:focus {
+            background: var(--bg-card-hover);
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 2px rgb(74 158 255 / 0.2);
+            color: var(--text-primary);
+        }
+
+        .form-control::placeholder {
+            color: var(--text-muted);
+        }
+
+        /* Badges */
+        .badge {
+            font-weight: 600;
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--border-radius);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .bg-primary { background-color: var(--primary-blue) !important; }
+        .bg-success { background-color: var(--success-green) !important; }
+        .bg-warning { background-color: var(--warning-orange) !important; }
+        .bg-danger { background-color: var(--danger-red) !important; }
+        .bg-secondary { background-color: var(--text-muted) !important; }
+
+        /* Tabelas */
+        .table {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            font-size: 0.875rem;
+        }
+
+        .table th {
+            background: var(--bg-darker);
+            border: none;
+            font-weight: 600;
+            color: var(--text-secondary);
+            padding: 0.75rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .table td {
+            background: var(--bg-card) !important;
+            padding: 0.75rem 1rem !important;
+            color: var(--text-primary) !important;
+            font-size: 0.8rem !important;
+            vertical-align: middle !important;
+        }
+
+        .table tbody tr:hover td {
+            background: var(--bg-card-hover) !important;
+        }
+
+        .table tbody tr td * {
+            color: var(--text-primary) !important;
+            font-size: 0.8rem !important;
+        }
+
+        /* Cores neutras para badges na tabela com opacidade */
+        .table .badge.bg-success {
+            background: rgba(34, 197, 94, 0.7) !important;
+            color: white !important;
+        }
+
+        .table .badge.bg-danger {
+            background: rgba(239, 68, 68, 0.7) !important;
+            color: white !important;
+        }
+
+        .table .badge.bg-warning {
+            background: rgba(245, 158, 11, 0.8) !important;
+            color: var(--text-primary) !important;
+        }
+
+        .table .badge.bg-info {
+            background: rgba(6, 182, 212, 0.7) !important;
+            color: white !important;
+        }
+
+        /* Badge do teste atual com cor mais escura */
+        .badge.bg-info {
+            background: var(--primary-blue) !important;
+            color: white !important;
+        }
+
+        .table .badge.bg-primary {
+            background: rgba(59, 130, 246, 0.7) !important;
+            color: white !important;
+        }
+
+        .table .badge.bg-secondary {
+            background: rgba(107, 114, 128, 0.7) !important;
+            color: white !important;
+        }
+
+        /* Ícones */
+        .fas, .far {
+            margin-right: 0.375rem;
+        }
+
+        /* Responsividade */
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 1rem;
+            }
+
+            .metric-value {
+                font-size: 1.5rem;
+            }
+
+            .sidebar {
+                padding: 1rem 0.75rem;
+            }
+
+            .dashboard-header h2 {
+                font-size: 1.1rem;
+            }
+        }
+
+        /* Cards Bootstrap Override */
+        .card {
+            background: var(--bg-card) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: var(--border-radius) !important;
+            color: var(--text-primary) !important;
+        }
+
+        .card-header {
+            background: var(--bg-darker) !important;
+            border-bottom: 1px solid var(--border-color) !important;
+            color: var(--text-primary) !important;
+            padding: 0.75rem 1rem !important;
+        }
+
+        .card-header h6 {
+            color: var(--text-primary) !important;
+            margin: 0 !important;
+            font-size: 0.875rem !important;
+            font-weight: 600 !important;
+        }
+
+        .card-body {
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+            padding: 1rem !important;
+        }
+
+        /* List Group Override */
+        .list-group {
+            background: var(--bg-card) !important;
+        }
+
+        .list-group-item {
+            background: var(--bg-card) !important;
+            border: 1px solid var(--border-color) !important;
+            color: var(--text-primary) !important;
+            font-size: 0.875rem !important;
+        }
+
+        .list-group-item:hover {
+            background: var(--bg-card-hover) !important;
+        }
+
+        /* Text Colors Override */
+        .text-muted {
+            color: var(--text-secondary) !important;
+        }
+
+        .text-info {
+            color: var(--info-cyan) !important;
+        }
+
+        .text-end {
+            color: var(--text-primary) !important;
+        }
+
+        /* Small text */
+        small {
+            color: var(--text-secondary) !important;
+        }
+
+        /* Modal Override */
+        .modal-content {
+            background: var(--bg-card) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: var(--border-radius-lg) !important;
+            color: var(--text-primary) !important;
+        }
+
+        .modal-header {
+            background: var(--bg-darker) !important;
+            border-bottom: 1px solid var(--border-color) !important;
+            color: var(--text-primary) !important;
+            padding: 1rem 1.5rem !important;
+        }
+
+        .modal-title {
+            color: var(--text-primary) !important;
+            font-size: 1.1rem !important;
+            font-weight: 600 !important;
+        }
+
+        .modal-body {
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+            padding: 1.5rem !important;
+        }
+
+        .modal-body h6 {
+            color: var(--primary-blue) !important;
+            font-size: 0.875rem !important;
+            font-weight: 600 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.05em !important;
+            margin-top: 1.5rem !important;
+            margin-bottom: 0.75rem !important;
+        }
+
+        .modal-body h6:first-child {
+            margin-top: 0 !important;
+        }
+
+        .modal-body p {
+            color: var(--text-primary) !important;
+            font-size: 0.875rem !important;
+            line-height: 1.5 !important;
+            margin-bottom: 1rem !important;
+        }
+
+        .modal-body strong {
+            color: var(--text-accent) !important;
+            font-weight: 600 !important;
+        }
+
+        /* Code blocks no modal */
+        .modal-code-block {
+            background: var(--bg-darker) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: var(--border-radius) !important;
+            padding: 1rem !important;
+            color: var(--text-primary) !important;
+            font-family: 'Courier New', monospace !important;
+            font-size: 0.8rem !important;
+            white-space: pre-wrap !important;
+            word-wrap: break-word !important;
+            max-height: 200px !important;
+            overflow-y: auto !important;
+        }
+
+        /* Response blocks no modal */
+        .modal-response-block {
+            background: var(--bg-darker) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: var(--border-radius) !important;
+            padding: 1rem !important;
+            color: var(--text-primary) !important;
+            font-size: 0.875rem !important;
+            line-height: 1.4 !important;
+            max-height: 200px !important;
+            overflow-y: auto !important;
+        }
+
+        /* Alert no modal */
+        .modal-body .alert {
+            background: var(--danger-red) !important;
+            border: 1px solid var(--danger-red) !important;
+            color: var(--text-primary) !important;
+            border-radius: var(--border-radius) !important;
+            padding: 0.75rem !important;
+            font-size: 0.875rem !important;
+        }
+
+        /* Btn-close override */
+        .btn-close {
+            background: transparent !important;
+            border: none !important;
+            color: var(--text-secondary) !important;
+            opacity: 0.8 !important;
+        }
+
+        .btn-close:hover {
+            color: var(--text-primary) !important;
+            opacity: 1 !important;
+        }
+
+        /* Modal backdrop */
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.7) !important;
+        }
+
+        /* Text colors no modal */
+        .modal-body .text-success {
+            color: var(--success-green) !important;
+            font-weight: 600 !important;
+        }
+
+        .modal-body .text-danger {
+            color: var(--danger-red) !important;
+            font-weight: 600 !important;
+        }
+
+        .modal-body .text-warning {
+            color: var(--warning-orange) !important;
+            font-weight: 600 !important;
+        }
+
+        /* Badges no modal */
+        .modal-body .badge {
+            font-size: 0.75rem !important;
+            padding: 0.25rem 0.5rem !important;
+            border-radius: var(--border-radius) !important;
+        }
+
+        /* Modal XL específico */
+        .modal-xl {
+            max-width: 90vw !important;
+        }
+
+        /* Cards dentro do modal */
+        .modal-body .card {
+            background: var(--bg-darker) !important;
+            border: 1px solid var(--border-color) !important;
+        }
+
+        .modal-body .card-header {
+            background: var(--bg-darker) !important;
+            border-bottom: 1px solid var(--border-color) !important;
+            padding: 0.75rem 1rem !important;
+        }
+
+        .modal-body .card-body {
+            background: var(--bg-darker) !important;
+            padding: 1rem !important;
+        }
+
+        /* Remover TODAS as bordas dos componentes dentro do modal */
+        .modal-body .card,
+        .modal-body .card-header,
+        .modal-body .card-body,
+        .modal-body .card-footer,
+        .modal-body .alert,
+        .modal-body .row .card,
+        .modal-body .col-md-6 .card {
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        .modal-body .card-header {
+            border-bottom: none !important;
+        }
+
+        .modal-body .alert {
+            border: none !important;
+            border-left: none !important;
+        }
+
+        /* Formatação especial para números grandes */
+        .display-6 {
+            font-size: 2.5rem !important;
+            font-weight: 700 !important;
+        }
+
+        /* JSON formatado */
+        .json-formatted {
+            background: var(--bg-card) !important;
+            border: 1px solid var(--border-color) !important;
+            border-radius: var(--border-radius) !important;
+            padding: 1rem !important;
+            color: var(--text-primary) !important;
+            font-size: 0.8rem !important;
+            max-height: 200px !important;
+            overflow-y: auto !important;
+        }
+
+        /* Melhor espaçamento para small text */
+        .modal-body small {
+            display: block !important;
+            margin-bottom: 0.25rem !important;
+        }
+
+        /* Separadores horizontais */
+        .modal-body hr {
+            border-color: var(--border-color) !important;
+            margin: 0.75rem 0 !important;
+        }
+
+        /* Scrollbar personalizada */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-darker);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* REDESIGN VISUAL SISTEMÁTICO - Remover aspecto Bootstrap */
+
+        /* Reset completo de componentes Bootstrap */
+        .card, .card-header, .card-body, .card-footer,
+        .table, .table th, .table td,
+        .form-control, .form-select, .form-label,
+        .btn, .badge, .alert,
+        .modal-content, .modal-header, .modal-body, .modal-footer {
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        /* Sistema de Cards Moderno */
+        .card {
+            background: var(--bg-card) !important;
+            border-radius: 12px !important;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+
+
+        .card-header {
+            background: linear-gradient(135deg, var(--bg-darker) 0%, var(--bg-card) 100%) !important;
+            color: var(--text-primary) !important;
+            font-weight: 600;
+            padding: 1.25rem 1.5rem !important;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .card-body {
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+            padding: 1.5rem !important;
+        }
+
+        /* Modal sem bordas - sistemático */
+        .modal-dialog {
+            max-width: 1200px !important;
+            margin: 2rem auto !important;
+            display: flex !important;
+            align-items: center !important;
+            min-height: calc(100vh - 4rem) !important;
+        }
+
+        .modal-content {
+            background: var(--bg-card) !important;
+            border-radius: 8px !important;
+            overflow: hidden !important;
+            max-height: 90vh !important;
+            width: 100% !important;
+        }
+
+        .modal-header {
+            background: var(--bg-darker) !important;
+            color: var(--text-primary) !important;
+            padding: 1rem 1.5rem !important;
+            font-weight: 500 !important;
+            font-size: 0.9rem !important;
+        }
+
+        .modal-body {
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+            padding: 1.5rem !important;
+            max-height: 70vh !important;
+            overflow-y: auto !important;
+            font-size: 0.875rem !important;
+        }
+
+        .modal-footer {
+            background: var(--bg-darker) !important;
+            padding: 1rem 1.5rem !important;
+            display: flex !important;
+            gap: 0.75rem !important;
+            justify-content: flex-end !important;
+        }
+
+        /* Sistema de Tabelas Moderno */
+        .table {
+            background: var(--bg-card) !important;
+            border-radius: 12px !important;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        }
+
+        .table th {
+            background: var(--bg-darker) !important;
+            color: var(--text-secondary) !important;
+            font-weight: 600;
+            padding: 1rem 1.25rem !important;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }
+
+        .table td {
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+            padding: 1rem 1.25rem !important;
+            vertical-align: middle;
+            transition: background-color 0.2s ease;
+        }
+
+        .table tbody tr:hover td {
+            background: var(--bg-card-hover) !important;
+        }
+
+        /* Sistema de Formulários Moderno */
+        .form-control, .form-select {
+            background: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+            border-radius: 8px !important;
+            padding: 0.75rem 1rem !important;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .form-control:focus, .form-select:focus {
+            background: var(--bg-card-hover) !important;
+            color: var(--text-primary) !important;
+            box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+            transform: translateY(-1px);
+        }
+
+        .form-label {
+            color: var(--text-secondary) !important;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Sistema de Botões Moderno */
+        .btn {
+            border-radius: 8px !important;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem !important;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%) !important;
+            color: white !important;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success-green) 0%, #0d9488 100%) !important;
+            color: white !important;
+        }
+
+        .btn-outline-primary {
+            background: transparent !important;
+            color: var(--primary-blue) !important;
+            box-shadow: inset 0 0 0 2px var(--primary-blue) !important;
+        }
+
+        .btn-outline-primary:hover {
+            background: var(--primary-blue) !important;
+            color: white !important;
+        }
+
+        /* Sistema de Badges Moderno */
+        .badge {
+            border-radius: 6px !important;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.4rem 0.8rem !important;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        /* Elementos do modal sem bordas */
+        .question-text {
+            background: var(--bg-darker) !important;
+            padding: 1rem !important;
+            border-radius: 6px !important;
+            font-weight: 500 !important;
+            margin-bottom: 1rem !important;
+            font-size: 0.875rem !important;
+        }
+
+        .modal-code-block {
+            background: var(--bg-darker) !important;
+            padding: 1rem !important;
+            border-radius: 6px !important;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace !important;
+            font-size: 0.75rem !important;
+            line-height: 1.4 !important;
+            overflow-x: auto !important;
+            color: var(--text-primary) !important;
+            font-weight: 400 !important;
+        }
+
+        .modal-response-block {
+            background: var(--bg-darker) !important;
+            padding: 1rem !important;
+            border-radius: 6px !important;
+            line-height: 1.5 !important;
+            color: var(--text-primary) !important;
+            font-size: 0.875rem !important;
+        }
+
+        /* Sistema de Alertas Moderno */
+        .alert {
+            border-radius: 12px !important;
+            padding: 1.25rem 1.5rem !important;
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .alert-info {
+            background: linear-gradient(135deg, rgba(74, 158, 255, 0.15) 0%, rgba(59, 130, 246, 0.1) 100%) !important;
+            color: var(--text-primary) !important;
+            border-left: 4px solid var(--primary-blue) !important;
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(5, 150, 105, 0.1) 100%) !important;
+            color: var(--text-primary) !important;
+            border-left: 4px solid var(--success-green) !important;
+        }
+
+        .alert-warning {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.1) 100%) !important;
+            color: var(--text-primary) !important;
+            border-left: 4px solid var(--warning-orange) !important;
+        }
+
+        .alert-danger {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.1) 100%) !important;
+            color: var(--text-primary) !important;
+            border-left: 4px solid var(--danger-red) !important;
+        }
+
+        /* Melhorias para Progress Bars */
+        .progress {
+            background: var(--bg-darker) !important;
+            border-radius: 8px !important;
+            height: 12px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+        }
+
+        .progress-bar {
+            border-radius: 8px !important;
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-dark) 100%) !important;
+            transition: width 0.6s ease;
+        }
+
+        /* Responsivo melhorado */
+        @media (max-width: 768px) {
+            .modal-dialog {
+                max-width: 95% !important;
+                margin: 1rem auto !important;
+                min-height: calc(100vh - 2rem);
+            }
+
+            .modal-content {
+                max-height: 95vh;
+                border-radius: 12px !important;
+            }
+
+            .modal-header, .modal-footer {
+                padding: 1rem 1.5rem !important;
+            }
+
+            .modal-body {
+                max-height: 75vh;
+                padding: 1.5rem !important;
+            }
+
+            .card {
+                margin-bottom: 1rem;
+                border-radius: 8px !important;
+            }
+
+            .card-header, .card-body {
+                padding: 1rem !important;
+            }
+
+            .btn {
+                padding: 0.6rem 1.2rem !important;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row g-0">
+            <!-- Sidebar -->
+            <div class="col-md-3 sidebar">
+                <div class="p-3">
+                    <div class="dashboard-header mb-4">
+                        <h4 class="mb-2"><i class="fas fa-flask"></i> Sistema de Testes</h4>
+                        <p class="text-muted small mb-0">Testes massivos para AgentGraph</p>
+                    </div>
+
+                    <!-- Configuração da Pergunta -->
+                    <div class="content-section">
+                        <h6 class="mb-3"><i class="fas fa-question-circle"></i> Pergunta do Teste</h6>
+                        <textarea id="testQuestion" class="form-control" rows="3"
+                                  placeholder="Digite a pergunta que será testada...">Quantos usuários temos na tabela?</textarea>
+                        <button id="createSession" class="btn btn-primary btn-sm mt-2 w-100">
+                            <i class="fas fa-plus"></i> Criar Sessão
+                        </button>
+                    </div>
+
+                <!-- Configuração de Grupo -->
+                <div id="groupConfig" style="display: none;">
+                    <h6><i class="fas fa-cogs"></i> Configurar Grupo</h6>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Modelo SQL Agent</label>
+                        <select id="sqlModel" class="form-select form-select-sm">
+                            {% for name, value in available_models.items() %}
+                            <option value="{{ value }}">{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="enableProcessing">
+                            <label class="form-check-label" for="enableProcessing">
+                                Ativar Processing Agent
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="processingModelDiv" class="mb-3" style="display: none;">
+                        <label class="form-label">Modelo Processing Agent</label>
+                        <select id="processingModel" class="form-select form-select-sm">
+                            {% for name, value in available_models.items() %}
+                            <option value="{{ value }}">{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="enableQuestionRefinement">
+                            <label class="form-check-label" for="enableQuestionRefinement">
+                                Ativar Question Refinement (GPT-4o)
+                            </label>
+                        </div>
+                        <div class="form-text">
+                            Usa GPT-4o para melhorar clareza da pergunta sem alterar lógica
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Número de Iterações</label>
+                        <input type="number" id="iterations" class="form-control form-control-sm" 
+                               value="5" min="1" max="100">
+                    </div>
+
+                    <button id="addGroup" class="btn btn-success btn-sm w-100 mb-2">
+                        <i class="fas fa-plus"></i> Adicionar Grupo
+                    </button>
+                </div>
+
+                <!-- Validação -->
+                <div id="validationConfig" style="display: none;">
+                    <hr>
+                    <h6><i class="fas fa-check-circle"></i> Validação</h6>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Método</label>
+                        <select id="validationMethod" class="form-select form-select-sm">
+                            <option value="llm">LLM (Automático)</option>
+                            <option value="keyword">Palavra-chave</option>
+                        </select>
+                    </div>
+
+                    <div id="keywordDiv" class="mb-3" style="display: none;">
+                        <label class="form-label">Conteúdo Esperado</label>
+                        <input type="text" id="expectedContent" class="form-control form-control-sm" 
+                               placeholder="Texto que deve aparecer na resposta">
+                    </div>
+
+                    <button id="runTests" class="btn btn-warning btn-sm w-100">
+                        <i class="fas fa-play"></i> Executar Testes
+                    </button>
+                </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9 main-content">
+                <div class="content-section">
+                    <div class="dashboard-header">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <div>
+                                <h2 class="mb-1"><i class="fas fa-chart-line"></i> Dashboard de Testes</h2>
+                                <p class="text-muted mb-0">Monitoramento em tempo real dos testes massivos</p>
+                            </div>
+                            <div class="d-flex align-items-center gap-3">
+                                <div id="sessionStatus" class="status-badge status-idle">
+                                    <i class="fas fa-circle"></i> Aguardando
+                                </div>
+                                <button id="refreshDashboard" class="btn btn-outline-primary" style="padding: 0.25rem 0.5rem; font-size: 0.7rem; display: flex; align-items: center; justify-content: center;" onclick="location.reload()">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Session Info -->
+                <div id="sessionInfo" class="alert alert-info" style="display: none;">
+                    <h6><i class="fas fa-info-circle"></i> Informações da Sessão</h6>
+                    <div id="sessionDetails"></div>
+                </div>
+
+                <!-- Test Groups -->
+                <div id="testGroups">
+                    <h5><i class="fas fa-layer-group"></i> Grupos de Teste</h5>
+                    <div id="groupsList">
+                        <p class="text-muted">Nenhum grupo configurado ainda.</p>
+                    </div>
+                </div>
+
+                <!-- Progress -->
+                <div id="progressContainer" class="progress-container">
+                    <h5><i class="fas fa-tasks"></i> Progresso dos Testes</h5>
+                    <div class="progress mb-3">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div id="progressDetails" class="row">
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value" id="completedTests">0</div>
+                                <div class="metric-label">Testes Concluídos</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value" id="totalTests">0</div>
+                                <div class="metric-label">Total de Testes</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value" id="currentGroup">-</div>
+                                <div class="metric-label">Grupo Atual</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value" id="estimatedTime">-</div>
+                                <div class="metric-label">Tempo Restante</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Controles de Cancelamento -->
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h6><i class="fas fa-stop-circle"></i> Controles de Teste</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div id="currentTestInfo" class="mb-3">
+                                        <strong>Teste Atual:</strong>
+                                        <div id="currentTestDetails" class="text-muted">Nenhum teste em execução</div>
+                                    </div>
+                                    <div id="runningTestsInfo" class="mb-3">
+                                        <strong>Testes em Execução:</strong>
+                                        <span id="runningTestsCount" class="badge bg-primary">0</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-grid gap-2">
+                                        <button id="cancelCurrentBtn" class="btn bg-opacity-100 btn-sm text-white" onclick="cancelCurrentTest()">
+                                            <i class="fas fa-stop"></i> Cancelar Teste Atual
+                                        </button>
+                                        <button id="skipStuckBtn" class="btn bg-opacity-100 btn-sm text-white" onclick="skipStuckTests()">
+                                            <i class="fas fa-forward"></i> Pular Testes Travados (>2min)
+                                        </button>
+                                        <button id="cancelAllBtn" class="btn bg-opacity-100 btn-sm text-white" onclick="cancelAllTests()">
+                                            <i class="fas fa-ban"></i> Cancelar Todos os Testes
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Lista de Testes em Execução -->
+                            <div id="runningTestsList" class="mt-3" style="display: none;">
+                                <h6>Testes em Execução:</h6>
+                                <div id="runningTestsContainer" class="list-group">
+                                    <!-- Preenchido dinamicamente -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div id="resultsContainer" class="results-container">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5><i class="fas fa-chart-bar"></i> Resultados</h5>
+                        <button id="downloadCsv" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-download"></i> Baixar CSV
+                        </button>
+                    </div>
+                    
+                    <!-- Tabs -->
+                    <ul class="nav nav-tabs" id="resultsTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="summary-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#summary" type="button" role="tab">
+                                <i class="fas fa-chart-pie"></i> Resumo
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="groups-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#groups" type="button" role="tab">
+                                <i class="fas fa-layer-group"></i> Por Grupo
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="individual-tab" data-bs-toggle="tab" 
+                                    data-bs-target="#individual" type="button" role="tab">
+                                <i class="fas fa-list"></i> Individual
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content" id="resultsTabContent">
+                        <div class="tab-pane fade show active" id="summary" role="tabpanel">
+                            <div id="summaryContent" class="p-3"></div>
+                        </div>
+                        <div class="tab-pane fade" id="groups" role="tabpanel">
+                            <div id="groupsContent" class="p-3"></div>
+                        </div>
+                        <div class="tab-pane fade" id="individual" role="tabpanel">
+                            <div id="individualContent" class="p-3"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

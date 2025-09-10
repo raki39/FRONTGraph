@@ -17,7 +17,7 @@ async def connection_selection_node(state: Dict[str, Any]) -> Dict[str, Any]:
         Estado atualizado com tipo de conexão definido
     """
     try:
-        logging.info("[CONNECTION_SELECTION] Iniciando seleção de tipo de conexão")
+        # Seleção de conexão iniciada
         
         # Verifica se o tipo de conexão já foi definido
         connection_type = state.get("connection_type")
@@ -25,7 +25,7 @@ async def connection_selection_node(state: Dict[str, Any]) -> Dict[str, Any]:
         if not connection_type:
             # Se não foi definido, assume csv como padrão (compatibilidade)
             connection_type = "csv"
-            logging.info("[CONNECTION_SELECTION] Tipo de conexão não definido, usando csv como padrão")
+            # Usando csv como padrão
         
         # Valida tipo de conexão
         valid_types = ["csv", "postgresql"]
@@ -46,7 +46,7 @@ async def connection_selection_node(state: Dict[str, Any]) -> Dict[str, Any]:
             "connection_success": True
         })
         
-        logging.info(f"[CONNECTION_SELECTION] Tipo de conexão selecionado: {connection_type}")
+        logging.info(f"[CONNECTION_SELECTION] Selecionado: {connection_type}")
         
         return state
         
@@ -79,9 +79,7 @@ def route_by_connection_type(state: Dict[str, Any]) -> str:
     db_id = state.get("db_id")
     engine_id = state.get("engine_id")
 
-    logging.info(f"[CONNECTION_ROUTING] Roteando para tipo: {connection_type}")
-    logging.info(f"[CONNECTION_ROUTING] DB ID existente: {db_id}")
-    logging.info(f"[CONNECTION_ROUTING] Engine ID existente: {engine_id}")
+    # Roteamento de conexão
 
     # Se já tem conexão estabelecida, pula para get_db_sample
     # Verifica se o sistema já foi inicializado
@@ -94,12 +92,10 @@ def route_by_connection_type(state: Dict[str, Any]) -> str:
     has_databases = stats.get("databases", 0) > 0
 
     if has_sql_agents and has_databases:
-        logging.info("[CONNECTION_ROUTING] Sistema já inicializado com agentes e bancos, pulando para get_db_sample")
         return "get_db_sample"
 
     # Fallback: verifica IDs específicos
     if db_id and engine_id:
-        logging.info("[CONNECTION_ROUTING] Conexão já estabelecida via IDs, pulando para get_db_sample")
         return "get_db_sample"
 
     if connection_type.upper() == "POSTGRESQL":

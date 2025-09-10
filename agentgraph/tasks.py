@@ -978,8 +978,7 @@ def generate_message_embedding_task(self, message_content: str, chat_session_id:
     logger = logging.getLogger(__name__)
 
     try:
-        logger.info(f"[EMBEDDING_TASK] Iniciando geração de embedding para sessão {chat_session_id}")
-        logger.info(f"[EMBEDDING_TASK] Conteúdo: '{message_content[:100]}...'")
+        # Geração de embedding iniciada
 
         # Importa serviços necessários
         from agentgraph.services.embedding_service import get_embedding_service
@@ -1016,11 +1015,9 @@ def generate_message_embedding_task(self, message_content: str, chat_session_id:
 
             message_row = result.fetchone()
             if not message_row:
-                logger.warning(f"[EMBEDDING_TASK] Mensagem não encontrada para sessão {chat_session_id}")
                 return {"status": "error", "error": "Mensagem não encontrada"}
 
             message_id = message_row[0]
-            logger.info(f"[EMBEDDING_TASK] Mensagem encontrada: ID {message_id}")
 
             # Verifica se embedding já existe
             existing = db_session.execute(text("""
@@ -1029,14 +1026,11 @@ def generate_message_embedding_task(self, message_content: str, chat_session_id:
             """), {"message_id": message_id}).fetchone()
 
             if existing:
-                logger.info(f"[EMBEDDING_TASK] Embedding já existe para mensagem {message_id}")
                 return {"status": "skipped", "message": "Embedding já existe"}
 
             # Gera embedding
             embedding_service = get_embedding_service()
             embedding = embedding_service.get_embedding(message_content)
-
-            logger.info(f"[EMBEDDING_TASK] Embedding gerado: {len(embedding)} dimensões")
 
             # Salva embedding no banco
             db_session.execute(text("""
@@ -1049,7 +1043,7 @@ def generate_message_embedding_task(self, message_content: str, chat_session_id:
             })
 
             db_session.commit()
-            logger.info(f"[EMBEDDING_TASK] ✅ Embedding salvo para mensagem {message_id}")
+            logger.info(f"[EMBEDDING_TASK] ✅ Embedding salvo: {message_id}")
 
             return {
                 "status": "success",

@@ -22,20 +22,14 @@ async def process_initial_context_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     # Verifica se o processing está habilitado
     processing_enabled = state.get("processing_enabled", False)
-    logging.info(f"[PROCESSING NODE] Processing enabled: {processing_enabled}")
-
     if not processing_enabled:
-        logging.info("[PROCESSING NODE] Processing Agent desabilitado - pulando nó")
         return state
-
-    logging.info("[PROCESSING NODE] ===== INICIANDO NÓ DE PROCESSAMENTO =====")
     
     try:
         user_input = state.get("user_input", "")
         processing_model = state.get("processing_model", "gpt-4o-mini")
 
-        logging.info(f"[PROCESSING NODE] Entrada do usuário: {user_input[:100]}...")
-        logging.info(f"[PROCESSING NODE] Modelo selecionado: {processing_model}")
+        # Processamento iniciado
 
         if not user_input:
             logging.warning("[PROCESSING NODE] Entrada do usuário não disponível")
@@ -49,26 +43,19 @@ async def process_initial_context_node(state: Dict[str, Any]) -> Dict[str, Any]:
             engine_id = state.get("engine_id")
             db_id = state.get("db_id")
 
-            logging.info(f"[PROCESSING NODE] ===== DEBUG ESTADO =====")
-            logging.info(f"[PROCESSING NODE] engine_id do estado: {engine_id}")
-            logging.info(f"[PROCESSING NODE] db_id do estado: {db_id}")
-            logging.info(f"[PROCESSING NODE] connection_type do estado: {state.get('connection_type')}")
-            logging.info(f"[PROCESSING NODE] Chaves disponíveis no estado: {list(state.keys())}")
-            logging.info(f"[PROCESSING NODE] ===== FIM DEBUG =====")
+            # Debug do estado
 
             if not engine_id or not db_id:
                 logging.error("[PROCESSING NODE] IDs de engine ou database não encontrados no estado")
                 logging.error(f"[PROCESSING NODE] engine_id: {engine_id}, db_id: {db_id}")
 
                 # Fallback: tenta usar os IDs disponíveis no ObjectManager
-                logging.info("[PROCESSING NODE] Tentando fallback para IDs disponíveis...")
                 engines = obj_manager._engines
                 databases = obj_manager._databases
 
                 if engines and databases:
                     engine_id = list(engines.keys())[-1]  # Pega o último (mais recente)
                     db_id = list(databases.keys())[-1]    # Pega o último (mais recente)
-                    logging.info(f"[PROCESSING NODE] Fallback: usando engine_id={engine_id}, db_id={db_id}")
                 else:
                     logging.error("[PROCESSING NODE] Nenhum engine ou database disponível no ObjectManager")
                     return state
@@ -77,17 +64,9 @@ async def process_initial_context_node(state: Dict[str, Any]) -> Dict[str, Any]:
             engine = obj_manager.get_engine(engine_id)
             database = obj_manager.get_database(db_id)
 
-            logging.info(f"[PROCESSING NODE] Engine obtido: {engine is not None}")
-            logging.info(f"[PROCESSING NODE] Database obtido: {database is not None}")
-
             if not engine or not database:
                 logging.error("[PROCESSING NODE] Engine ou database não encontrados no ObjectManager")
-                logging.error(f"[PROCESSING NODE] engine: {engine}, database: {database}")
-                logging.error(f"[PROCESSING NODE] Engines disponíveis: {list(obj_manager._engines.keys())}")
-                logging.error(f"[PROCESSING NODE] Databases disponíveis: {list(obj_manager._databases.keys())}")
                 return state
-
-            logging.info(f"[PROCESSING NODE] Usando engine {engine_id} e database {db_id} do estado atual")
 
             # Detecta o tipo de engine baseado no dialect
             engine_dialect = str(engine.dialect.name).lower()
@@ -136,15 +115,12 @@ async def process_initial_context_node(state: Dict[str, Any]) -> Dict[str, Any]:
                         """))
                         available_tables = [row[0] for row in tables_result.fetchall()]
 
-                    logging.info(f"[PROCESSING NODE] Tabelas encontradas: {available_tables}")
-
                     # Processa cada tabela (máximo 5 para performance)
                     for table_name in available_tables[:20]:
                         columns_data[table_name] = _extract_table_columns_info(engine, table_name)
 
             else:
                 # Para SQLite (CSV convertido), processa tabela padrão
-                logging.info(f"[PROCESSING NODE] SQLite - processando tabela padrão")
                 columns_data["tabela"] = _extract_table_columns_info(engine, "tabela")
 
             logging.info(f"[PROCESSING NODE] ✅ Dados das colunas extraídos para {len(columns_data)} tabela(s)")
@@ -164,18 +140,13 @@ async def process_initial_context_node(state: Dict[str, Any]) -> Dict[str, Any]:
             processing_agent = obj_manager.get_processing_agent(processing_agent_id)
             # Verifica se precisa recriar com modelo diferente
             if processing_agent and processing_agent.model_name != processing_model:
-                logging.info(f"[PROCESSING NODE] Recriando Processing Agent com modelo {processing_model}")
                 processing_agent.recreate_llm(processing_model)
-            else:
-                logging.info(f"[PROCESSING NODE] Reutilizando Processing Agent existente com modelo {processing_agent.model_name}")
         else:
             # Cria novo Processing Agent
-            logging.info(f"[PROCESSING NODE] Criando novo Processing Agent com modelo {processing_model}")
             processing_agent = ProcessingAgentManager(processing_model)
             processing_agent_id = obj_manager.store_processing_agent(processing_agent)
             state["processing_agent_id"] = processing_agent_id
-            logging.info(f"[PROCESSING NODE] Novo Processing Agent criado e armazenado com ID: {processing_agent_id}")
-        
+
         # Prepara contexto para o Processing Agent com dados já processados
         connection_type = state.get("connection_type", "csv")
         single_table_mode = state.get("single_table_mode", False)
@@ -185,25 +156,9 @@ async def process_initial_context_node(state: Dict[str, Any]) -> Dict[str, Any]:
         available_tables = None
         if engine_dialect == "postgresql":
             available_tables = list(columns_data.keys())
-            logging.info(f"[PROCESSING NODE] Tabelas disponíveis para contexto: {available_tables}")
 
         # Obtém contexto histórico (se disponível)
         history_context = state.get("history_context", "")
-        try:
-            logging.info("[PROCESSING NODE] Inspecting history context in state...")
-            logging.info(f"[PROCESSING NODE] history flags: enabled={state.get('history_enabled')}, retrieved={state.get('history_retrieved')}, has_history={state.get('has_history')}")
-            hlen = len(history_context) if history_context is not None else 0
-            logging.info(f"[PROCESSING NODE] history_context len={hlen}")
-            if history_context and history_context.strip():
-                # Preview das primeiras linhas
-                preview_lines = [ln for ln in history_context.split('\n') if ln.strip()][:6]
-                logging.info("[PROCESSING NODE] PREVIEW DO HISTORICO NO STATE:")
-                for ln in preview_lines:
-                    logging.info(f"[PROCESSING NODE]    {ln}")
-            else:
-                logging.info("[PROCESSING NODE] history_context esta vazio/branco no state")
-        except Exception:
-            logging.info("[PROCESSING NODE] erro ao inspecionar history_context no state")
 
         # NOVA CHAMADA: Passa dados já processados em vez de fazer consultas redundantes
         processing_context = prepare_processing_context(
@@ -236,23 +191,12 @@ async def process_initial_context_node(state: Dict[str, Any]) -> Dict[str, Any]:
             logging.info(f"[PROCESSING NODE] ❌ SEM DADOS DE HISTÓRICO - chat_session_id ou user_id ausentes")
 
         # Executa processamento
-        logging.info(f"[PROCESSING NODE] 🚀 Iniciando execução do Processing Agent...")
-        logging.info(f"[PROCESSING NODE] Processing Agent: {processing_agent}")
-        logging.info(f"[PROCESSING NODE] Modelo: {processing_agent.model_name if processing_agent else 'N/A'}")
-
         try:
             processing_result = await processing_agent.process_context(processing_context)
-            logging.info(f"[PROCESSING NODE] ✅ Processing Agent executado com sucesso")
+            logging.info(f"[PROCESSING NODE] ✅ Executado com sucesso")
         except Exception as e:
-            logging.error(f"[PROCESSING NODE] ❌ Erro na execução do Processing Agent: {e}")
-            import traceback
-            logging.error(f"[PROCESSING NODE] Traceback: {traceback.format_exc()}")
+            logging.error(f"[PROCESSING NODE] ❌ Erro: {e}")
             return state
-
-        # Log da resposta da primeira LLM
-        logging.info(f"[PROCESSING NODE] ===== RESPOSTA DA PRIMEIRA LLM =====")
-        logging.info(f"{processing_result.get('output', 'Sem resposta')}")
-        logging.info(f"[PROCESSING NODE] ===== FIM DA RESPOSTA =====")
 
         if processing_result["success"]:
             # Extrai query sugerida e observações
@@ -269,16 +213,12 @@ async def process_initial_context_node(state: Dict[str, Any]) -> Dict[str, Any]:
             
             # Log simples do resultado
             if suggested_query:
-                logging.info(f"[PROCESSING NODE] ✅ Query SQL extraída com sucesso")
-                logging.info(f"[PROCESSING NODE] ✅ Observações extraídas: {len(query_observations)} caracteres")
-                logging.info(f"[PROCESSING NODE] 🎯 Query será incluída no contexto do SQL Agent")
-            else:
-                logging.warning(f"[PROCESSING NODE] ❌ Nenhuma query foi extraída - agente SQL funcionará normalmente")
-            
+                logging.info(f"[PROCESSING NODE] ✅ Query extraída")
+
         else:
             # Em caso de erro, continua sem processamento
             error_msg = processing_result.get("output", "Erro desconhecido")
-            logging.error(f"[PROCESSING] Erro no processamento: {error_msg}")
+            logging.error(f"[PROCESSING NODE] Erro: {error_msg}")
 
             state.update({
                 "suggested_query": "",
@@ -382,8 +322,6 @@ def _extract_table_columns_info(engine, table_name: str) -> list:
     import pandas as pd
 
     try:
-        logging.info(f"[PROCESSING NODE] Extraindo informações da tabela: {table_name}")
-
         with engine.connect() as conn:
             # Primeiro, tenta obter dados da tabela (máximo 5 linhas)
             try:
@@ -427,7 +365,6 @@ def _extract_table_columns_info(engine, table_name: str) -> list:
 
                 else:
                     # Tabela sem dados - obtém apenas estrutura das colunas
-                    logging.info(f"[PROCESSING NODE] ⚠️ Tabela {table_name} sem dados - obtendo apenas estrutura")
 
                     # Para PostgreSQL, obtém informações das colunas do schema
                     if str(engine.dialect.name).lower() == "postgresql":
@@ -460,7 +397,6 @@ def _extract_table_columns_info(engine, table_name: str) -> list:
                             }
                             columns_info.append(col_info)
 
-                    logging.info(f"[PROCESSING NODE] ✅ Tabela {table_name}: {len(columns_info)} colunas (estrutura apenas)")
                     return columns_info
 
             except Exception as e:
@@ -498,8 +434,7 @@ def _extract_table_columns_info(engine, table_name: str) -> list:
                                 "stats": ""
                             }
                             columns_info.append(col_info)
-
-                    logging.info(f"[PROCESSING NODE] ⚠️ Tabela {table_name}: {len(columns_info)} colunas (fallback)")
+                            
                     return columns_info
 
                 except Exception as e2:

@@ -25,7 +25,7 @@ async def history_retrieval_node(state: Dict[str, Any]) -> Dict[str, Any]:
         history_service = get_history_service()
         
         if not history_service.is_enabled():
-            logger.info("[HISTORY_RETRIEVAL] Sistema de histórico desabilitado")
+            # Histórico desabilitado
             state["relevant_history"] = []
             state["has_history"] = False
             state["history_context"] = ""
@@ -50,7 +50,7 @@ async def history_retrieval_node(state: Dict[str, Any]) -> Dict[str, Any]:
                     user_id = user_id or row[0]
                     agent_id = agent_id or row[1]
                     chat_session_id = chat_session_id or row[2]
-                    logger.info(f"[HISTORY_RETRIEVAL] Fallback via run_id: user_id={user_id}, agent_id={agent_id}, chat_session_id={chat_session_id}")
+                    # Contexto recuperado via run_id
             if (not user_id or not agent_id) and chat_session_id and not run_id:
                 row2 = _svc.db_session.execute(__import__("sqlalchemy").sql.text(
                     "SELECT user_id, agent_id FROM chat_sessions WHERE id = :csid"
@@ -58,7 +58,7 @@ async def history_retrieval_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 if row2:
                     user_id = user_id or row2[0]
                     agent_id = agent_id or row2[1]
-                    logger.info(f"[HISTORY_RETRIEVAL] Fallback via chat_session_id: user_id={user_id}, agent_id={agent_id}")
+                    # Contexto recuperado via chat_session_id
             _svc.close()
         except Exception as e:
             logger.warning(f"[HISTORY_RETRIEVAL] Falha nos fallbacks de contexto: {e}")
@@ -70,8 +70,7 @@ async def history_retrieval_node(state: Dict[str, Any]) -> Dict[str, Any]:
             state["history_context"] = ""
             return state
         
-        logger.info(f"[HISTORY_RETRIEVAL] Buscando histórico para user_id={user_id}, agent_id={agent_id}")
-        logger.info(f"[HISTORY_RETRIEVAL] Query: '{user_input[:100]}...'")
+        # Busca histórico silenciosa
         
         # Busca histórico relevante (inclui busca semântica, mensagens recentes e última interação)
         relevant_messages = history_service.get_relevant_history(
@@ -92,20 +91,9 @@ async def history_retrieval_node(state: Dict[str, Any]) -> Dict[str, Any]:
         state["history_retrieved"] = True  # MARCA COMO RECUPERADO
         
         if relevant_messages:
-            logger.info(f"[HISTORY_RETRIEVAL] ✅ {len(relevant_messages)} mensagens relevantes encontradas")
-            logger.info(f"[HISTORY_RETRIEVAL] Contexto gerado: {len(history_context)} caracteres")
-
-            # DEBUG: Log das mensagens encontradas
-            for i, msg in enumerate(relevant_messages[:3]):  # Primeiras 3 mensagens
-                logger.info(f"[HISTORY_RETRIEVAL] 📝 Mensagem {i+1}: {msg['role']} - {msg['content'][:50]}...")
-
-            # DEBUG: Log do contexto formatado
-            logger.info(f"[HISTORY_RETRIEVAL] 📚 CONTEXTO FORMATADO:")
-            for line in history_context.split('\n')[:10]:  # Primeiras 10 linhas
-                if line.strip():
-                    logger.info(f"[HISTORY_RETRIEVAL]    {line}")
+            logger.info(f"[HISTORY_RETRIEVAL] ✅ {len(relevant_messages)} mensagens encontradas")
         else:
-            logger.info("[HISTORY_RETRIEVAL] ℹ️ Nenhum histórico relevante encontrado")
+            logger.info("[HISTORY_RETRIEVAL] Nenhum histórico encontrado")
         
         # Cleanup
         history_service.close()
@@ -143,7 +131,7 @@ def history_retrieval_node_sync(state: Dict[str, Any]) -> Dict[str, Any]:
         history_service = get_history_service()
         
         if not history_service.is_enabled():
-            logger.info("[HISTORY_RETRIEVAL] Sistema de histórico desabilitado")
+            # Histórico desabilitado
             state["relevant_history"] = []
             state["has_history"] = False
             state["history_context"] = ""
@@ -167,7 +155,7 @@ def history_retrieval_node_sync(state: Dict[str, Any]) -> Dict[str, Any]:
                 ), {"csid": chat_session_id}).fetchone()
                 if row:
                     user_id, agent_id = row[0], row[1]
-                    logger.info(f"[HISTORY_RETRIEVAL] Contexto via chat_session_id: user_id={user_id}, agent_id={agent_id}")
+                    # Contexto via chat_session_id
                 _svc.close()
             elif run_id:
                 from sqlalchemy import text
@@ -181,7 +169,7 @@ def history_retrieval_node_sync(state: Dict[str, Any]) -> Dict[str, Any]:
                     agent_id = row[1]
                     chat_session_id = row[2]
                     state["chat_session_id"] = chat_session_id
-                    logger.info(f"[HISTORY_RETRIEVAL] Contexto via run_id: user_id={user_id}, agent_id={agent_id}, chat_session_id={chat_session_id}")
+                    # Contexto via run_id
                 _svc.close()
         except Exception as e:
             logger.warning(f"[HISTORY_RETRIEVAL] Falha ao resolver contexto: {e}")
@@ -193,8 +181,7 @@ def history_retrieval_node_sync(state: Dict[str, Any]) -> Dict[str, Any]:
             state["history_context"] = ""
             return state
         
-        logger.info(f"[HISTORY_RETRIEVAL] Buscando histórico para user_id={user_id}, agent_id={agent_id}")
-        logger.info(f"[HISTORY_RETRIEVAL] Query: '{user_input[:100]}...'")
+        # Busca histórico silenciosa
         
         # Busca histórico relevante (inclui busca semântica, mensagens recentes e última interação)
         relevant_messages = history_service.get_relevant_history(
@@ -215,10 +202,9 @@ def history_retrieval_node_sync(state: Dict[str, Any]) -> Dict[str, Any]:
         state["history_retrieved"] = True  # MARCA COMO RECUPERADO
         
         if relevant_messages:
-            logger.info(f"[HISTORY_RETRIEVAL] ✅ {len(relevant_messages)} mensagens relevantes encontradas")
-            logger.info(f"[HISTORY_RETRIEVAL] Contexto gerado: {len(history_context)} caracteres")
+            logger.info(f"[HISTORY_RETRIEVAL] ✅ {len(relevant_messages)} mensagens encontradas")
         else:
-            logger.info("[HISTORY_RETRIEVAL] ℹ️ Nenhum histórico relevante encontrado")
+            logger.info("[HISTORY_RETRIEVAL] Nenhum histórico encontrado")
         
         # Cleanup
         history_service.close()
@@ -255,25 +241,20 @@ def should_retrieve_history(state: Dict[str, Any]) -> str:
         history_enabled = os.getenv("HISTORY_ENABLED", "true").lower() == "true"
         
         if not history_enabled:
-            logger.info("[HISTORY_ROUTING] Histórico desabilitado - pulando recuperação")
             return "skip_history"
-        
+
         # Verifica se tem informações necessárias
         user_id = state.get("user_id")
         agent_id = state.get("agent_id")
         user_input = state.get("user_input", "")
-        
+
         if not user_id or not agent_id or not user_input.strip():
-            logger.info("[HISTORY_ROUTING] Informações insuficientes - pulando histórico")
             return "skip_history"
-        
+
         # Verifica se é uma query que se beneficia de histórico
         # (evita histórico para queries muito simples)
         if len(user_input.strip()) < 10:
-            logger.info("[HISTORY_ROUTING] Query muito simples - pulando histórico")
             return "skip_history"
-        
-        logger.info("[HISTORY_ROUTING] Condições atendidas - buscando histórico")
         return "retrieve_history"
         
     except Exception as e:

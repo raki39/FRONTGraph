@@ -27,7 +27,7 @@ class HistoryService:
         self.max_messages = int(os.getenv("HISTORY_MAX_MESSAGES", "15"))
         self.similarity_threshold = float(os.getenv("HISTORY_SIMILARITY_THRESHOLD", "0.75"))
 
-        logger.info(f"[HISTORY_SERVICE] Inicializado - Enabled: {self.history_enabled}, Max: {self.max_messages}")
+        # Removido log verboso de inicialização
 
     def _create_worker_session(self) -> Session:
         """Cria sessão específica para Worker Celery"""
@@ -55,7 +55,7 @@ class HistoryService:
 
             # Testa conexão
             session.execute(text("SELECT 1"))
-            logger.info("[HISTORY_SERVICE] Conexão com PostgreSQL estabelecida")
+            # Conexão estabelecida silenciosamente
 
             return session
 
@@ -106,7 +106,7 @@ class HistoryService:
                 """), {"session_id": recent_session[0]})
                 self.db_session.commit()
 
-                logger.info(f"[HISTORY_SERVICE] Sessão existente reutilizada: {recent_session[0]}")
+                # Sessão reutilizada
                 return recent_session[0]
 
             # Cria nova sessão
@@ -126,7 +126,7 @@ class HistoryService:
             session_id = result.fetchone()[0]
             self.db_session.commit()
 
-            logger.info(f"[HISTORY_SERVICE] Nova sessão criada: {session_id}")
+            # Nova sessão criada
             return session_id
 
         except Exception as e:
@@ -183,14 +183,14 @@ class HistoryService:
                         user_msg.update({"source": "last_interaction", "relevance_score": 1.1})
                         assistant_msg.update({"source": "last_interaction", "relevance_score": 1.05})
                         relevant_messages.extend([user_msg, assistant_msg])
-                        logger.info("[HISTORY_SERVICE] Última interação adicionada ao conjunto de histórico")
+                        # Última interação incluída
             except Exception as e:
                 logger.warning(f"[HISTORY_SERVICE] Falha ao garantir última interação: {e}")
 
             # 3. Remove duplicatas e ordena por relevância
             unique_messages = self._deduplicate_and_rank(relevant_messages, limit)
 
-            logger.info(f"[HISTORY_SERVICE] Histórico recuperado: {len(unique_messages)} mensagens")
+            logger.info(f"[HISTORY_SERVICE] Recuperado: {len(unique_messages)} mensagens")
             return unique_messages
 
         except Exception as e:
@@ -201,7 +201,7 @@ class HistoryService:
         """Busca mensagens recentes da sessão atual"""
         try:
             result = self.db_session.execute(text("""
-                SELECT m.role, m.content, m.sql_query, m.created_at, m.sequence_order
+                SELECT m.role, m.content, m.sql_query, m.created_at, m.sequence_order, m.chat_session_id
                 FROM messages m
                 WHERE m.chat_session_id = :session_id
                 ORDER BY m.sequence_order DESC
@@ -219,6 +219,7 @@ class HistoryService:
                     "sql_query": row[2],
                     "created_at": row[3],
                     "sequence_order": row[4],
+                    "chat_session_id": row[5],
                     "source": "recent_session",
                     "relevance_score": 1.0  # Máxima relevância para mensagens da sessão
                 })
@@ -259,6 +260,7 @@ class HistoryService:
                 "sql_query": user_row[3],
                 "created_at": user_row[4],
                 "sequence_order": user_row[5],
+                "chat_session_id": chat_session_id,
             }
 
             # Busca a próxima mensagem do assistente (imediatamente após a do usuário)
@@ -296,6 +298,7 @@ class HistoryService:
                 "sql_query": assistant_row[3],
                 "created_at": assistant_row[4],
                 "sequence_order": assistant_row[5],
+                "chat_session_id": chat_session_id,
             }
 
             return (user_msg, assistant_msg)
@@ -318,22 +321,23 @@ class HistoryService:
             from pgvector.psycopg2 import register_vector
 
             # Prepara query com paramstyle nativo do psycopg2 (%s)
+            # CORREÇÃO: Busca tanto perguntas (user) quanto respostas (assistant) para formar pares completos
             sql = """
-                SELECT m.role, m.content, m.sql_query, m.created_at,
+                SELECT m.role, m.content, m.sql_query, m.created_at, m.sequence_order, m.chat_session_id,
                        (me.embedding <-> %s::vector) AS distance
                 FROM messages m
                 JOIN message_embeddings me ON m.id = me.message_id
                 JOIN chat_sessions cs ON m.chat_session_id = cs.id
                 WHERE cs.user_id = %s
                   AND cs.agent_id = %s
-                  AND m.role = 'user'
-                  AND cs.id = %s
+                  AND m.role IN ('user', 'assistant')
+                  AND cs.id != %s
                   AND (me.embedding <-> %s::vector) < %s
                 ORDER BY distance ASC
                 LIMIT %s
             """
 
-            # Parâmetros na ordem correta (inclui chat_session_id para restringir à sessão atual)
+            # Parâmetros na ordem correta (exclui chat_session_id atual para buscar histórico anterior)
             params = (
                 query_embedding,
                 user_id,
@@ -364,10 +368,15 @@ class HistoryService:
                     "content": row['content'],
                     "sql_query": row['sql_query'],
                     "created_at": row['created_at'],
+                    "sequence_order": row['sequence_order'],
+                    "chat_session_id": row['chat_session_id'],
                     "source": "semantic_search",
                     "relevance_score": similarity_score
                 })
 
+            # Log simplificado
+            if messages:
+                logger.info(f"[HISTORY_SERVICE] Busca semântica: {len(messages)} mensagens")
             return messages
 
         except Exception as e:
@@ -442,7 +451,7 @@ class HistoryService:
             keywords = query_text.lower().split()[:3]  # Primeiras 3 palavras
 
             result = self.db_session.execute(text("""
-                SELECT m.role, m.content, m.sql_query, m.created_at
+                SELECT m.role, m.content, m.sql_query, m.created_at, m.sequence_order, m.chat_session_id
                 FROM messages m
                 JOIN chat_sessions cs ON m.chat_session_id = cs.id
                 WHERE cs.user_id = :user_id
@@ -473,6 +482,8 @@ class HistoryService:
                     "content": row[1],
                     "sql_query": row[2],
                     "created_at": row[3],
+                    "sequence_order": row[4],
+                    "chat_session_id": row[5],
                     "source": "text_search",
                     "relevance_score": 0.5  # Score médio para busca textual
                 })
@@ -541,8 +552,15 @@ class HistoryService:
                         continue
                     if ls.startswith("⏱") or ls.startswith("---"):
                         continue
+                    # Remove mensagem do botão de criar tabela
+                    if "você pode criar uma nova tabela" in low and "use o botão" in low:
+                        continue
                     lines.append(ls)
                 s = " ".join(lines)
+                s = re.sub(r"\s+", " ", s)
+                # Remove também a mensagem do botão se estiver inline
+                s = re.sub(r"\*Você pode criar uma nova tabela.*?Use o botão.*?\*", "", s, flags=re.IGNORECASE)
+                s = re.sub(r"💡\s*\*.*?Use o botão.*?\*", "", s, flags=re.IGNORECASE)
                 s = re.sub(r"\s+", " ", s)
                 return s.strip()
 
@@ -595,6 +613,8 @@ class HistoryService:
             # Construcao de pares em toda a lista (user -> proximo assistant posterior)
             pairs_all: List[Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]] = []
             pending_user = None
+
+            # Formação de pares silenciosa
             for m in ordered_all:
                 role = m.get('role')
                 if role == 'user':
@@ -626,7 +646,19 @@ class HistoryService:
                 if last_pair and u == last_pair[0] and a == last_pair[1]:
                     continue
                 relevant_pairs.append((u, a))
+
             relevant_pairs.sort(key=lambda p: pair_score(p[0], p[1]), reverse=True)
+
+            # Fallback para formar pares com mensagens soltas
+            if not relevant_pairs:
+                assistant_messages = [m for m in messages if m.get('role') == 'assistant' and not (last_pair and m in [last_pair[0], last_pair[1]])]
+
+                for asst_msg in assistant_messages:
+                    best_user = self._find_corresponding_user_message(asst_msg)
+                    if best_user:
+                        relevant_pairs.append((best_user, asst_msg))
+
+                relevant_pairs.sort(key=lambda p: pair_score(p[0], p[1]), reverse=True)
 
             def fmt_pair(u: Optional[Dict[str, Any]], a: Optional[Dict[str, Any]]):
                 if not u and not a:
@@ -637,6 +669,21 @@ class HistoryService:
                 raw_wo_sql, sql_from_content = extract_sql_and_strip(raw_ans)
 
                 q = sanitize((u or {}).get('content'))
+
+                # Se não há pergunta no par, tenta buscar a pergunta anterior à resposta
+                if not q and a:
+                    a_created = a.get('created_at') or datetime.min
+                    a_seq = a.get('sequence_order') if a.get('sequence_order') is not None else -1
+                    user_messages = [m for m in ordered_all if m.get('role') == 'user']
+
+                    for user_msg in reversed(user_messages):
+                        user_created = user_msg.get('created_at') or datetime.min
+                        user_seq = user_msg.get('sequence_order') if user_msg.get('sequence_order') is not None else -1
+                        if (user_created, user_seq) <= (a_created, a_seq):
+                            q = sanitize(user_msg.get('content'))
+                            if q:
+                                break
+
                 atext = sanitize(raw_wo_sql if raw_wo_sql else raw_ans)
                 sqlq_raw = (a or {}).get('sql_query')
                 sqlq = sanitize(sqlq_raw) if isinstance(sqlq_raw, str) and sqlq_raw.strip() else sanitize(sql_from_content)
@@ -724,19 +771,91 @@ class HistoryService:
                 lines.extend(rel_lines)
 
             formatted_context = "\n".join(lines)
-            logger.info(f"[HISTORY_SERVICE] Contexto formatado: {len(formatted_context)} chars")
+            logger.info(f"[HISTORY_SERVICE] Contexto: {len(formatted_context)} chars")
             return formatted_context
 
         except Exception as e:
             logger.error(f"[HISTORY_SERVICE] Erro ao formatar contexto: {e}")
             return ""
 
+    def _find_corresponding_user_message(self, assistant_msg: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Busca a pergunta do usuário correspondente a uma resposta do assistente
+        Busca no banco de dados pela mensagem de usuário imediatamente anterior
+        """
+        try:
+            # Obtém informações da mensagem do assistente
+            chat_session_id = assistant_msg.get('chat_session_id')
+            asst_sequence = assistant_msg.get('sequence_order')
+            asst_created = assistant_msg.get('created_at')
+
+            if not chat_session_id:
+                logger.warning("[HISTORY_SERVICE] Assistant message sem chat_session_id")
+                return None
+
+            # Busca a mensagem de usuário imediatamente anterior por sequence_order
+            if asst_sequence is not None and asst_sequence > 0:
+                result = self.db_session.execute(text("""
+                    SELECT id, role, content, sql_query, created_at, sequence_order, chat_session_id
+                    FROM messages
+                    WHERE chat_session_id = :session_id
+                      AND role = 'user'
+                      AND sequence_order = :seq
+                    LIMIT 1
+                """), {"session_id": chat_session_id, "seq": asst_sequence - 1})
+
+                row = result.fetchone()
+                if row:
+                    return {
+                        "id": row[0],
+                        "role": row[1],
+                        "content": row[2],
+                        "sql_query": row[3],
+                        "created_at": row[4],
+                        "sequence_order": row[5],
+                        "chat_session_id": row[6],
+                        "source": "database_lookup",
+                        "relevance_score": 0.8
+                    }
+
+            # Fallback: busca por timestamp (mensagem de usuário mais recente antes do assistente)
+            if asst_created:
+                result = self.db_session.execute(text("""
+                    SELECT id, role, content, sql_query, created_at, sequence_order, chat_session_id
+                    FROM messages
+                    WHERE chat_session_id = :session_id
+                      AND role = 'user'
+                      AND created_at <= :before
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                """), {"session_id": chat_session_id, "before": asst_created})
+
+                row = result.fetchone()
+                if row:
+                    return {
+                        "id": row[0],
+                        "role": row[1],
+                        "content": row[2],
+                        "sql_query": row[3],
+                        "created_at": row[4],
+                        "sequence_order": row[5],
+                        "chat_session_id": row[6],
+                        "source": "database_lookup",
+                        "relevance_score": 0.7
+                    }
+
+            return None
+
+        except Exception as e:
+            logger.error(f"[HISTORY_SERVICE] Erro ao buscar user correspondente: {e}")
+            return None
+
     def close(self):
         """Fecha a sessão do banco"""
         try:
             if self.db_session:
                 self.db_session.close()
-                logger.info("[HISTORY_SERVICE] Sessão do banco fechada")
+                # Sessão fechada
         except Exception as e:
             logger.error(f"[HISTORY_SERVICE] Erro ao fechar sessão: {e}")
 

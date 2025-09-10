@@ -26,7 +26,7 @@ async def history_capture_node(state: Dict[str, Any]) -> Dict[str, Any]:
         history_service = get_history_service()
         
         if not history_service.is_enabled():
-            logger.info("[HISTORY_CAPTURE] Sistema de histórico desabilitado")
+            # Histórico desabilitado
             state["history_captured"] = False
             return state
         
@@ -43,7 +43,7 @@ async def history_capture_node(state: Dict[str, Any]) -> Dict[str, Any]:
             state["history_captured"] = False
             return state
         
-        logger.info(f"[HISTORY_CAPTURE] Capturando conversa para user_id={user_id}, agent_id={agent_id}")
+        # Captura iniciada
         
         # Obtém ou cria sessão de chat
         chat_session_id = state.get("chat_session_id")
@@ -80,10 +80,10 @@ async def history_capture_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 chat_session_id=chat_session_id
             )
             
-            logger.info("[HISTORY_CAPTURE] ✅ Conversa capturada com sucesso")
+            logger.info("[HISTORY_CAPTURE] ✅ Capturada")
             state["history_captured"] = True
         else:
-            logger.error("[HISTORY_CAPTURE] ❌ Falha ao capturar conversa")
+            logger.error("[HISTORY_CAPTURE] ❌ Falha")
             state["history_captured"] = False
         
         # Cleanup
@@ -119,7 +119,7 @@ def history_capture_node_sync(state: Dict[str, Any]) -> Dict[str, Any]:
         history_service = get_history_service()
         
         if not history_service.is_enabled():
-            logger.info("[HISTORY_CAPTURE] Sistema de histórico desabilitado")
+            # Histórico desabilitado
             state["history_captured"] = False
             return state
         
@@ -169,7 +169,7 @@ def history_capture_node_sync(state: Dict[str, Any]) -> Dict[str, Any]:
             state["history_captured"] = False
             return state
         
-        logger.info(f"[HISTORY_CAPTURE] Capturando conversa para user_id={user_id}, agent_id={agent_id}")
+        # Captura iniciada
         
         # Obtém ou cria sessão de chat
         chat_session_id = state.get("chat_session_id")
@@ -206,10 +206,10 @@ def history_capture_node_sync(state: Dict[str, Any]) -> Dict[str, Any]:
                 chat_session_id=chat_session_id
             )
             
-            logger.info("[HISTORY_CAPTURE] ✅ Conversa capturada com sucesso")
+            logger.info("[HISTORY_CAPTURE] ✅ Capturada")
             state["history_captured"] = True
         else:
-            logger.error("[HISTORY_CAPTURE] ❌ Falha ao capturar conversa")
+            logger.error("[HISTORY_CAPTURE] ❌ Falha")
             state["history_captured"] = False
         
         # Cleanup
@@ -282,7 +282,7 @@ async def _save_conversation_to_history(history_service, chat_session_id: int,
         
         history_service.db_session.commit()
         
-        logger.info(f"[HISTORY_CAPTURE] Mensagens salvas: user={user_message_id}, assistant={assistant_message_id}")
+        # Mensagens salvas
         return True
         
     except Exception as e:
@@ -346,7 +346,7 @@ def _save_conversation_to_history_sync(history_service, chat_session_id: int,
         
         history_service.db_session.commit()
         
-        logger.info(f"[HISTORY_CAPTURE] Mensagens salvas: user={user_message_id}, assistant={assistant_message_id}")
+        # Mensagens salvas
         return True
         
     except Exception as e:
@@ -402,21 +402,18 @@ def should_capture_history(state: Dict[str, Any]) -> str:
         history_enabled = os.getenv("HISTORY_ENABLED", "true").lower() == "true"
         
         if not history_enabled:
-            logger.info("[HISTORY_CAPTURE_ROUTING] Histórico desabilitado - pulando captura")
             return "skip_capture"
-        
+
         # Verifica se tem resposta para capturar
         response = state.get("response", "")
         user_input = state.get("user_input", "")
-        
+
         if not response.strip() or not user_input.strip():
-            logger.info("[HISTORY_CAPTURE_ROUTING] Sem resposta válida - pulando captura")
             return "skip_capture"
-        
+
         # Verifica se houve erro
         error = state.get("error")
         if error:
-            logger.info("[HISTORY_CAPTURE_ROUTING] Erro na execução - pulando captura")
             return "skip_capture"
         
         logger.info("[HISTORY_CAPTURE_ROUTING] Condições atendidas - capturando histórico")

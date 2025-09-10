@@ -1,105 +1,106 @@
 # Docker Compose para VPN - IP: 192.168.10.35
-# Uso: docker compose -f docker-compose.vpn.yml up -d
-
-version: '3.8'
+# Cópia EXATA do docker-compose.yml normal, só mudando URLs para VPN
 
 services:
   postgres:
-    image: postgres:15
+    image: pgvector/pgvector:pg15
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-chainagent_db}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      POSTGRES_DB: agentgraph
+      POSTGRES_USER: agent
+      POSTGRES_PASSWORD: agent
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+    command: postgres -c shared_preload_libraries=vector
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
-    volumes:
-      - shared-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+    command: redis-server --appendonly yes
 
   api:
     build:
-      context: ./api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: api/Dockerfile
     environment:
-      # Database
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-admin}@postgres:5432/${POSTGRES_DB:-chainagent_db}
-      
-      # Redis
-      REDIS_URL: redis://redis:6379/0
-      
-      # CORS - IMPORTANTE: Incluir IP da VPN
-      ALLOWED_ORIGINS: http://192.168.10.35:3000,http://localhost:3000,http://localhost:5173
-      
-      # Keys e observabilidade
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      LANGCHAIN_TRACING_V2: ${LANGCHAIN_TRACING_V2:-false}
-      LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY:-}
-      LANGCHAIN_PROJECT: ${LANGCHAIN_PROJECT:-chainagent}
-      
-      # JWT
-      SECRET_KEY: ${SECRET_KEY:-your-secret-key-here-change-in-production}
-      ALGORITHM: ${ALGORITHM:-HS256}
-      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
-      
-      # Celery
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DB: agentgraph
+      PG_USER: agent
+      PG_PASSWORD: agent
+      DATA_DIR: /shared-data
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
+      # CORS - IMPORTANTE: Incluir IP da VPN
+      ALLOWED_ORIGINS: http://192.168.10.35:3000,http://localhost:3000,http://localhost:5173
+      # Keys e observabilidade
+      HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY}
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING}
+      LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT}
+      # Compatibilidade com .env legado do agente
+      USE_CELERY: ${USE_CELERY}
+      REDIS_URL: ${REDIS_URL}
+      REDIS_RESULT_BACKEND: ${REDIS_RESULT_BACKEND}
+      CELERY_DEBUG: ${CELERY_DEBUG}
+      CELERY_ENABLED: ${CELERY_ENABLED}
+      CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER}
+      CELERY_TASK_MAX_RETRIES: ${CELERY_TASK_MAX_RETRIES}
+      CELERY_TASK_DEFAULT_RETRY_DELAY: ${CELERY_TASK_DEFAULT_RETRY_DELAY}
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres
+      - redis
     ports:
       - "8000:8000"
     volumes:
-      - ./api:/app
       - shared-data:/shared-data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   worker:
     build:
-      context: ./worker
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: worker/Dockerfile
     environment:
-      # Database
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-admin}@postgres:5432/${POSTGRES_DB:-chainagent_db}
-      
-      # Redis
-      REDIS_URL: redis://redis:6379/0
-      
-      # Keys
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      LANGCHAIN_TRACING_V2: ${LANGCHAIN_TRACING_V2:-false}
-      LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY:-}
-      LANGCHAIN_PROJECT: ${LANGCHAIN_PROJECT:-chainagent}
-      
-      # Celery
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: redis://redis:6379/0
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DB: agentgraph
+      PG_USER: agent
+      PG_PASSWORD: agent
+      # Keys e observabilidade
+      HUGGINGFACE_API_KEY: ${HUGGINGFACE_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY}
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING}
+      LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT}
+      # Compatibilidade com .env legado do agente
+      USE_CELERY: ${USE_CELERY}
+      REDIS_URL: ${REDIS_URL}
+      REDIS_RESULT_BACKEND: ${REDIS_RESULT_BACKEND}
+      CELERY_DEBUG: ${CELERY_DEBUG}
+      CELERY_ENABLED: ${CELERY_ENABLED}
+      CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER}
+      CELERY_TASK_MAX_RETRIES: ${CELERY_TASK_MAX_RETRIES}
+      CELERY_TASK_DEFAULT_RETRY_DELAY: ${CELERY_TASK_DEFAULT_RETRY_DELAY}
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - redis
+      - postgres
     volumes:
-      - ./agentgraph:/app/agentgraph
       - shared-data:/shared-data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   frontend:
     build:

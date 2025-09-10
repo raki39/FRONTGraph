@@ -470,18 +470,8 @@ class AgentGraphManager:
                 else:
                     logging.error("ID do banco de dados não encontrado para o agente")
 
-            # Log dos parâmetros recebidos
-            logging.info(f"[MAIN GRAPH] ===== INICIANDO PROCESSAMENTO DE QUERY =====")
-            logging.info(f"[MAIN GRAPH] User input: {user_input}")
-            logging.info(f"[MAIN GRAPH] Selected model: {selected_model}")
-            logging.info(f"[MAIN GRAPH] Advanced mode: {advanced_mode}")
-            logging.info(f"[MAIN GRAPH] Processing enabled: {processing_enabled}")
-            logging.info(f"[MAIN GRAPH] Processing model: {processing_model}")
-            logging.info(f"[MAIN GRAPH] Connection type: {connection_type}")
-            if postgresql_config:
-                logging.info(f"[MAIN GRAPH] PostgreSQL config: {postgresql_config['host']}:{postgresql_config['port']}/{postgresql_config['database']}")
-            if selected_table:
-                logging.info(f"[MAIN GRAPH] Selected table: {selected_table}")
+            # Log simplificado
+            logging.info(f"[MAIN_GRAPH] Processando: {user_input[:50]}...")
             logging.info(f"[MAIN GRAPH] Single table mode: {single_table_mode}")
 
             # Prepara estado inicial com IDs serializáveis
@@ -581,7 +571,7 @@ class AgentGraphManager:
             }
             result = await self.app.ainvoke(initial_state, config=config)
             
-            logging.info(f"Query processada com sucesso: {user_input[:50]}...")
+            logging.info(f"[MAIN_GRAPH] ✅ Processada: {user_input[:50]}...")
             return result
             
         except Exception as e:

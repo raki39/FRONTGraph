@@ -139,23 +139,14 @@ def prepare_processing_context(user_query: str, columns_data: dict, connection_t
     Returns:
         Contexto formatado para o Processing Agent
     """
-    logging.info(f"[TOOLS] ===== PREPARANDO CONTEXTO =====")
-    logging.info(f"[TOOLS] Connection type: {connection_type}")
-    logging.info(f"[TOOLS] Single table mode: {single_table_mode}")
-    logging.info(f"[TOOLS] Selected table: {selected_table}")
-    logging.info(f"[TOOLS] Available tables: {available_tables}")
-    logging.info(f"[TOOLS] Columns data keys: {list(columns_data.keys()) if columns_data else 'None'}")
+    # Preparação de contexto iniciada
 
     # Processa os dados das colunas baseado no tipo de conexão
     column_info = []
 
     if connection_type.lower() == "postgresql":
-        logging.info(f"[TOOLS] 🔵 PROCESSANDO POSTGRESQL")
-
         if single_table_mode and selected_table:
             # PostgreSQL - Modo tabela única: usa APENAS dados da tabela selecionada
-            logging.info(f"[TOOLS] 🔵 PostgreSQL MODO ÚNICO - tabela: {selected_table}")
-
             table_data = columns_data.get(selected_table, [])
             if table_data:
                 for col_info in table_data:
@@ -166,13 +157,8 @@ def prepare_processing_context(user_query: str, columns_data: dict, connection_t
                         column_line += f"{col_info['stats']}"
                     column_info.append(column_line)
 
-                logging.info(f"[TOOLS] ✅ PostgreSQL modo único processado: {len(column_info)} colunas")
-            else:
-                logging.warning(f"[TOOLS] ⚠️ Nenhum dado encontrado para tabela {selected_table}")
-
         else:
             # PostgreSQL - Modo multi-tabela: usa dados de TODAS as tabelas
-            logging.info(f"[TOOLS] 🔵 PostgreSQL MODO MULTI-TABELA - {len(columns_data)} tabelas")
 
             for table_name, table_columns in columns_data.items():
                 column_info.append(f"\n**Tabela: {table_name}**")
@@ -188,13 +174,8 @@ def prepare_processing_context(user_query: str, columns_data: dict, connection_t
                 else:
                     column_info.append("- (Tabela sem dados ou colunas)")
 
-                logging.info(f"[TOOLS] ✅ Tabela {table_name} processada: {len(table_columns)} colunas")
-
-            logging.info(f"[TOOLS] ✅ PostgreSQL multi-tabela processado: {len(column_info)} itens")
-
     else:
         # CSV/SQLite - usa APENAS dados da tabela CSV
-        logging.info(f"[TOOLS] 🟡 PROCESSANDO CSV/SQLITE")
 
         # Para CSV, deve haver apenas uma entrada no columns_data
         for table_name, table_columns in columns_data.items():
@@ -206,12 +187,7 @@ def prepare_processing_context(user_query: str, columns_data: dict, connection_t
                     column_line += f"{col_info['stats']}"
                 column_info.append(column_line)
 
-        logging.info(f"[TOOLS] ✅ CSV/SQLite processado: {len(column_info)} colunas")
-
     columns_description = "\n".join(column_info)
-    logging.info(f"[TOOLS] ===== CONTEXTO FINAL =====")
-    logging.info(f"[TOOLS] Total de itens no contexto: {len(column_info)}")
-    logging.info(f"[TOOLS] ===== FIM PREPARAÇÃO =====")
 
     # Determina informações da tabela de forma dinâmica
     if connection_type.lower() == "postgresql":
@@ -237,12 +213,6 @@ def prepare_processing_context(user_query: str, columns_data: dict, connection_t
 
     # Prepara seção de histórico se disponível
     history_section = ""
-    try:
-        hist_len = len(history_context) if history_context is not None else 0
-        hist_blank = not bool(history_context and history_context.strip())
-        logging.info(f"[TOOLS] 🔎 history_context param - len={hist_len}, blank={hist_blank}")
-    except Exception:
-        logging.info("[TOOLS] 🔎 history_context param - erro ao calcular len/blank")
 
     if history_context and history_context.strip():
         history_section = f"""
@@ -250,15 +220,6 @@ def prepare_processing_context(user_query: str, columns_data: dict, connection_t
     {history_context}
 
     """
-        logging.info(f"[TOOLS] 📚 HISTÓRICO INCLUÍDO NO CONTEXTO: {len(history_context)} chars")
-
-        # DEBUG: Log do histórico que está sendo incluído
-        logging.info(f"[TOOLS] 📝 PREVIEW DO HISTÓRICO:")
-        for line in history_context.split('\n')[:8]:  # Primeiras 8 linhas
-            if line.strip():
-                logging.info(f"[TOOLS]    {line}")
-    else:
-        logging.info(f"[TOOLS] ❌ NENHUM HISTÓRICO DISPONÍVEL para o Processing Agent")
 
     context = f"""
     Você é um especialista em SQL que deve analisar a pergunta do usuário e gerar uma query SQL otimizada.
@@ -315,17 +276,11 @@ def prepare_sql_context(user_query: str, db_sample: pd.DataFrame, suggested_quer
     # Contexto histórico (se disponível)
     contexto_historico = ""
     if history_context and history_context.strip():
-        logging.info(f"[SQL CONTEXT] 📚 Incluindo contexto histórico no SQL Agent")
         contexto_historico = f"{history_context}\n\n"
-        logging.info(f"[SQL CONTEXT] ✅ Contexto histórico incluído: {len(history_context)} caracteres")
-    else:
-        logging.info(f"[SQL CONTEXT] ℹ️ Sem contexto histórico disponível")
 
     # Contexto com opção de query (se disponível)
     contexto_opcao_query = ""
     if suggested_query and suggested_query.strip():
-        logging.info(f"[SQL CONTEXT] 🎯 Incluindo query sugerida no contexto do SQL Agent")
-
         # Mantém formatação original da query
         contexto_opcao_query = f"Opção de querySQL:\n```sql\n{suggested_query}\n```\n\n"
 
@@ -333,9 +288,6 @@ def prepare_sql_context(user_query: str, db_sample: pd.DataFrame, suggested_quer
             contexto_opcao_query += f"Observações:\n{query_observations}\n\n"
 
         contexto_opcao_query += "Você pode usar esta opção de query se ela estiver correta, ou criar sua própria query.\n\n"
-        logging.info(f"[SQL CONTEXT] ✅ Contexto do SQL Agent preparado COM sugestão de query")
-    else:
-        logging.info(f"[SQL CONTEXT] ℹ️ Contexto do SQL Agent preparado SEM sugestão de query")
 
     # Monta contexto final (histórico + query sugerida + pergunta)
     context = contexto_base + contexto_historico + contexto_opcao_query + f"Pergunta do usuário: \n{user_query}"
@@ -367,8 +319,6 @@ async def refine_response_with_llm(
         "Evite repetir informações sem necessidade e não invente dados."
     )
 
-    logging.info(f"[DEBUG] Prompt enviado ao modelo de refinamento:\n{prompt}\n")
-
     try:
         response = hf_client.chat.completions.create(
             model=REFINEMENT_MODELS["LLaMA 70B"],
@@ -377,7 +327,6 @@ async def refine_response_with_llm(
             stream=False
         )
         improved_response = response["choices"][0]["message"]["content"]
-        logging.info(f"[DEBUG] Resposta do modelo de refinamento:\n{improved_response}\n")
         return improved_response + ("\n\n" + chart_md if chart_md else "")
 
     except Exception as e:
@@ -571,11 +520,11 @@ def extract_sql_query_from_response(agent_response: str) -> Optional[str]:
 
             # Verifica se é uma query válida
             if is_valid_sql_query(query):
-                logging.info(f"[GRAPH] Query SQL extraída (padrão {i+1}): {query[:100]}...")
+                logging.info(f"[TOOLS] Query SQL extraída")
                 return query
 
-    # Log da resposta para debug se não encontrar SQL
-    logging.warning(f"[GRAPH] Não foi possível extrair query SQL. Resposta (primeiros 200 chars): {agent_response[:200]}...")
+    # Log simplificado se não encontrar SQL
+    logging.warning(f"[TOOLS] Query SQL não encontrada")
     return None
 
 def clean_sql_query(query: str) -> str:

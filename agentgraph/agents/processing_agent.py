@@ -117,19 +117,15 @@ class ProcessingAgentManager:
             # Executa o processamento
             if hasattr(self.llm, 'ainvoke'):
                 # Para modelos que suportam async
-                logging.info(f"[PROCESSING] Executando chamada assíncrona para {self.model_name}")
                 response = await self.llm.ainvoke([HumanMessage(content=context_prompt)])
                 output = response.content
             else:
                 # Para modelos síncronos, executa em thread
-                logging.info(f"[PROCESSING] Executando chamada síncrona para {self.model_name}")
                 response = await asyncio.get_event_loop().run_in_executor(
                     None,
                     lambda: self.llm.invoke([HumanMessage(content=context_prompt)])
                 )
                 output = response.content if hasattr(response, 'content') else str(response)
-
-            logging.info(f"[PROCESSING] Resposta recebida do modelo ({len(output)} caracteres)")
 
             # Processa a resposta
             processed_result = self._parse_processing_response(output)
@@ -145,11 +141,10 @@ class ProcessingAgentManager:
 
             # Log simples do resultado
             if result['suggested_query']:
-                logging.info(f"[PROCESSING] ✅ Query SQL extraída com sucesso")
+                logging.info(f"[PROCESSING] ✅ Query SQL extraída")
             else:
-                logging.warning(f"[PROCESSING] ❌ Nenhuma query SQL foi extraída")
+                logging.warning(f"[PROCESSING] ❌ Nenhuma query extraída")
 
-            logging.info(f"[PROCESSING] ===== PROCESSING AGENT CONCLUÍDO =====")
             return result
             
         except Exception as e:

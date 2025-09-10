@@ -111,14 +111,10 @@ async def format_final_response_node(state: Dict[str, Any]) -> Dict[str, Any]:
         Estado com resposta formatada
     """
     try:
-        logging.info("[FORMAT] 🎨 Iniciando formatação final da resposta")
-
         response = state.get("response", "")
         execution_time = state.get("execution_time", 0.0)
         advanced_mode = state.get("advanced_mode", False)
         refined = state.get("refined", False)
-
-        logging.info(f"[FORMAT] Estado inicial - Response: {len(response)} chars, Advanced: {advanced_mode}, Refined: {refined}")
 
         # Adiciona informações de contexto se necessário
         if advanced_mode and refined:
@@ -135,13 +131,10 @@ async def format_final_response_node(state: Dict[str, Any]) -> Dict[str, Any]:
         # Adiciona SQL query utilizada se disponível
         sql_query = state.get("sql_query_extracted") or state.get("sql_query")
         connection_type = state.get("connection_type", "")
-        logging.info(f"[FORMAT] SQL query encontrada: {sql_query}")
-        logging.info(f"[FORMAT] Connection type: {connection_type}")
 
         if sql_query:
             # Limpa e formata a SQL query
             sql_query_str = str(sql_query).strip()
-            logging.info(f"[FORMAT] SQL query processada: {sql_query_str[:100]}...")
 
             if sql_query_str and sql_query_str.lower() != 'none':
                 response += f"\n\n---\n\n**Query SQL utilizada:**\n\n```sql\n{sql_query_str}\n```"
@@ -152,22 +145,16 @@ async def format_final_response_node(state: Dict[str, Any]) -> Dict[str, Any]:
                     state["create_table_sql"] = sql_query_str
                     state["show_create_table_option"] = True
                     response += f"\n\n💡 *Você pode criar uma nova tabela no PostgreSQL com estes dados. Use o botão 'Criar Tabela' abaixo do chat.*"
-                    logging.info("[FORMAT] ✅ Opção de criar tabela habilitada (PostgreSQL)")
-
-                logging.info(f"[FORMAT] ✅ SQL query adicionada à resposta: {sql_query_str[:50]}...")
-            else:
-                logging.info("[FORMAT] ❌ SQL query vazia ou 'none', não adicionada")
-        else:
-            logging.info("[FORMAT] ❌ Nenhuma SQL query encontrada no estado")
+                    logging.info("[FORMAT] ✅ Opção criar tabela habilitada")
 
         # Formatação final
         state["response"] = response.strip()
         state["formatted"] = True
 
-        logging.info(f"[FORMAT] ✅ Resposta formatada - {len(response)} caracteres")
+        logging.info(f"[FORMAT] ✅ Formatada: {len(response)} chars")
 
     except Exception as e:
-        logging.error(f"[FORMAT] Erro na formatação: {e}")
+        logging.error(f"[FORMAT] Erro: {e}")
         # Mantém resposta original se houver erro na formatação
 
     return state

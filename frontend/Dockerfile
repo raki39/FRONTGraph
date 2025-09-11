@@ -10,8 +10,8 @@ WORKDIR /app
 # Copiar package.json e package-lock.json
 COPY package*.json ./
 
-# Instalar dependências
-RUN npm ci
+# Instalar dependências com cache limpo e sem cache npm
+RUN npm ci --no-audit --no-fund --cache /tmp/.npm
 
 # Copiar código fonte
 COPY . .

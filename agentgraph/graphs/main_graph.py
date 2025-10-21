@@ -52,7 +52,7 @@ from agentgraph.nodes.history_retrieval_node import (
     should_retrieve_history
 )
 from agentgraph.nodes.history_capture_node import (
-    history_capture_node_sync,
+    history_capture_node,  # ASYNC - CORRETO PARA APIs
     should_capture_history
 )
 from agentgraph.nodes.celery_polling_node import (
@@ -264,7 +264,7 @@ class AgentGraphManager:
 
             # Adiciona nós de histórico
             workflow.add_node("history_retrieval", history_retrieval_node_sync)
-            workflow.add_node("history_capture", history_capture_node_sync)
+            workflow.add_node("history_capture", history_capture_node)  # ASYNC - CORRETO
 
             # Adiciona nós de cache e histórico
             workflow.add_node("cache_response", cache_response_node)
@@ -492,6 +492,10 @@ class AgentGraphManager:
                 "engine_id": engine_id or self.engine_id,  # Usar engine_id passado ou o padrão
                 "db_id": db_id or self.db_id,  # Usar db_id passado ou o padrão
                 "cache_id": self.cache_id,
+                # Campos relacionados ao histórico/conversa
+                "user_id": user_id,
+                "chat_session_id": chat_session_id,
+                "run_id": run_id,
                 # Campos relacionados a gráficos
                 "query_type": "sql_query",  # Será atualizado pela detecção
                 "sql_query_extracted": None,

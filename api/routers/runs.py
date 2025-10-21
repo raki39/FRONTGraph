@@ -1,15 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List
+from sqlalchemy import func
+from typing import List, Optional
 import logging
 import time
 import json
+import math
 from datetime import datetime
 
 from ..db.session import get_db
 from ..core.security import get_current_user
 from ..models import Run, Agent, AgentConnection
-from ..schemas import RunCreate, RunOut
+from ..schemas import RunCreate, RunOut, PaginatedRunsResponse, PaginationInfo
 from ..services.runs import create_run
 from agentgraph.tasks import save_agent_config_to_redis, process_sql_query_task, get_task_status
 
@@ -153,9 +155,16 @@ def run_agent(agent_id: int, payload: RunCreate, db: Session = Depends(get_db), 
 
     return run
 
-@router.get("/agents/{agent_id}/runs", response_model=List[RunOut])
-def list_agent_runs(agent_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
-    logger.info(f"📋 LISTANDO RUNS - Agent ID: {agent_id}, User ID: {user.id}")
+@router.get("/agents/{agent_id}/runs", response_model=PaginatedRunsResponse)
+def list_agent_runs(
+    agent_id: int,
+    page: int = Query(1, ge=1, description="Número da página (1-based)"),
+    per_page: int = Query(10, ge=1, le=100, description="Itens por página"),
+    chat_session_id: Optional[int] = Query(None, description="Filtrar por sessão de chat"),
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    logger.info(f"📋 LISTANDO RUNS - Agent ID: {agent_id}, User ID: {user.id}, Page: {page}, Per Page: {per_page}")
 
     # Primeiro verifica se o agente pertence ao usuário
     ag = db.query(Agent).filter(Agent.id == agent_id, Agent.owner_user_id == user.id).first()
@@ -163,10 +172,37 @@ def list_agent_runs(agent_id: int, db: Session = Depends(get_db), user=Depends(g
         logger.error(f"❌ Agente {agent_id} não encontrado para usuário {user.id}")
         raise HTTPException(status_code=404, detail="Agente não encontrado")
 
-    runs = db.query(Run).filter(Run.agent_id == agent_id, Run.user_id == user.id).order_by(Run.created_at.desc()).all()
-    logger.info(f"✅ Encontradas {len(runs)} execuções para agente {agent_id}")
+    # Query base
+    query = db.query(Run).filter(Run.agent_id == agent_id, Run.user_id == user.id)
 
-    return runs
+    # Filtro por chat_session_id se fornecido
+    if chat_session_id is not None:
+        query = query.filter(Run.chat_session_id == chat_session_id)
+        logger.info(f"🔍 Filtrando por chat_session_id: {chat_session_id}")
+
+    # Contar total de itens
+    total_items = query.count()
+
+    # Calcular paginação
+    total_pages = math.ceil(total_items / per_page) if total_items > 0 else 1
+    offset = (page - 1) * per_page
+
+    # Buscar runs paginadas
+    runs = query.order_by(Run.created_at.desc()).offset(offset).limit(per_page).all()
+
+    logger.info(f"✅ Encontradas {len(runs)} execuções para agente {agent_id} (página {page}/{total_pages})")
+
+    # Criar resposta paginada
+    pagination_info = PaginationInfo(
+        page=page,
+        per_page=per_page,
+        total_items=total_items,
+        total_pages=total_pages,
+        has_next=page < total_pages,
+        has_prev=page > 1
+    )
+
+    return PaginatedRunsResponse(runs=runs, pagination=pagination_info)
 
 @router.get("/runs/{run_id}", response_model=RunOut)
 def get_run(run_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)):
@@ -199,20 +235,67 @@ def get_run(run_id: int, db: Session = Depends(get_db), user=Depends(get_current
 
     return run
 
-@router.get("/runs/", response_model=List[RunOut])
-def list_user_runs(db: Session = Depends(get_db), user=Depends(get_current_user)):
-    """Lista todas as execuções do usuário logado"""
-    logger.info(f"📋 LISTANDO TODAS AS RUNS - User ID: {user.id}")
+@router.get("/runs/", response_model=PaginatedRunsResponse)
+def list_user_runs(
+    page: int = Query(1, ge=1, description="Número da página (1-based)"),
+    per_page: int = Query(10, ge=1, le=100, description="Itens por página"),
+    agent_id: Optional[int] = Query(None, description="Filtrar por agente"),
+    chat_session_id: Optional[int] = Query(None, description="Filtrar por sessão de chat"),
+    status: Optional[str] = Query(None, description="Filtrar por status"),
+    db: Session = Depends(get_db),
+    user=Depends(get_current_user)
+):
+    """Lista todas as execuções do usuário logado com paginação"""
+    logger.info(f"📋 LISTANDO TODAS AS RUNS - User ID: {user.id}, Page: {page}, Per Page: {per_page}")
 
-    runs = db.query(Run).filter(Run.user_id == user.id).order_by(Run.created_at.desc()).all()
-    logger.info(f"✅ Encontradas {len(runs)} execuções para usuário {user.id}")
+    # Query base
+    query = db.query(Run).filter(Run.user_id == user.id)
 
-    # Log de estatísticas
+    # Filtros opcionais
+    if agent_id is not None:
+        # Verificar se o agente pertence ao usuário
+        ag = db.query(Agent).filter(Agent.id == agent_id, Agent.owner_user_id == user.id).first()
+        if not ag:
+            raise HTTPException(status_code=404, detail="Agente não encontrado")
+        query = query.filter(Run.agent_id == agent_id)
+        logger.info(f"🔍 Filtrando por agent_id: {agent_id}")
+
+    if chat_session_id is not None:
+        query = query.filter(Run.chat_session_id == chat_session_id)
+        logger.info(f"🔍 Filtrando por chat_session_id: {chat_session_id}")
+
+    if status is not None:
+        query = query.filter(Run.status == status)
+        logger.info(f"🔍 Filtrando por status: {status}")
+
+    # Contar total de itens
+    total_items = query.count()
+
+    # Calcular paginação
+    total_pages = math.ceil(total_items / per_page) if total_items > 0 else 1
+    offset = (page - 1) * per_page
+
+    # Buscar runs paginadas
+    runs = query.order_by(Run.created_at.desc()).offset(offset).limit(per_page).all()
+
+    logger.info(f"✅ Encontradas {len(runs)} execuções para usuário {user.id} (página {page}/{total_pages})")
+
+    # Log de estatísticas da página atual
     if runs:
         status_counts = {}
         for run in runs:
             status_counts[run.status] = status_counts.get(run.status, 0) + 1
-        logger.info(f"📊 Estatísticas: {status_counts}")
+        logger.info(f"📊 Estatísticas da página: {status_counts}")
 
-    return runs
+    # Criar resposta paginada
+    pagination_info = PaginationInfo(
+        page=page,
+        per_page=per_page,
+        total_items=total_items,
+        total_pages=total_pages,
+        has_next=page < total_pages,
+        has_prev=page > 1
+    )
+
+    return PaginatedRunsResponse(runs=runs, pagination=pagination_info)
 

@@ -89,13 +89,68 @@ export interface Run {
   chat_session_id?: number
 }
 
+export interface PaginationInfo {
+  page: number
+  per_page: number
+  total_items: number
+  total_pages: number
+  has_next: boolean
+  has_prev: boolean
+}
+
+export interface PaginatedRunsResponse {
+  runs: Run[]
+  pagination: PaginationInfo
+}
+
 export interface ChatSession {
   id: number
   user_id: number
   agent_id: number
   title: string
   created_at: string
+  last_activity: string
+  total_messages: number
+  status: string
+  context_summary?: string
+  last_message?: string
+}
+
+export interface ChatSessionListItem {
+  id: number
+  title: string
+  last_message?: string
+  messages_count: number
   updated_at: string
+  status: string
+  agent_id: number
+}
+
+export interface ChatSessionListResponse {
+  sessions: ChatSessionListItem[]
+  pagination: PaginationInfo
+}
+
+export interface Message {
+  id: number
+  chat_session_id: number
+  run_id: number
+  role: 'user' | 'assistant'
+  content: string
+  sql_query?: string
+  created_at: string
+  sequence_order: number
+  message_metadata?: any
+}
+
+export interface MessagesResponse {
+  messages: Message[]
+  pagination: PaginationInfo
+  session_info: {
+    id: number
+    title: string
+    total_messages: number
+  }
 }
 
 // API Functions
@@ -199,7 +254,7 @@ export const agentsAPI = {
 }
 
 export const runsAPI = {
-  create: async (agentId: number, question: string, chatSessionId?: number): Promise<Run> => {
+  create: async (agentId: number, question: string, chatSessionId: number): Promise<Run> => {
     const response = await api.post(`/agents/${agentId}/run`, {
       question,
       chat_session_id: chatSessionId
@@ -212,26 +267,143 @@ export const runsAPI = {
     return response.data
   },
 
-  list: async (agentId?: number): Promise<Run[]> => {
+  list: async (
+    agentId?: number,
+    page: number = 1,
+    perPage: number = 10,
+    chatSessionId?: number,
+    status?: string
+  ): Promise<PaginatedRunsResponse> => {
+    console.log('🔄 runsAPI.list called with:', { agentId, page, perPage, chatSessionId, status })
+
     const url = agentId ? `/agents/${agentId}/runs` : '/runs/'
-    const response = await api.get(url)
+    const params = new URLSearchParams({
+      page: page.toString(),
+      per_page: perPage.toString()
+    })
+
+    if (chatSessionId) {
+      params.append('chat_session_id', chatSessionId.toString())
+    }
+
+    if (status) {
+      params.append('status', status)
+    }
+
+    if (agentId && !url.includes('/agents/')) {
+      params.append('agent_id', agentId.toString())
+    }
+
+    const finalUrl = `${url}?${params.toString()}`
+    console.log('📡 Making request to:', finalUrl)
+
+    const response = await api.get(finalUrl)
+    console.log('✅ Response received:', response.data)
     return response.data
+  },
+
+  // Método auxiliar para buscar todas as runs (compatibilidade)
+  listAll: async (agentId?: number): Promise<Run[]> => {
+    console.log('🔄 runsAPI.listAll started for agentId:', agentId)
+    const allRuns: Run[] = []
+    let page = 1
+    let hasNext = true
+
+    while (hasNext) {
+      console.log(`📄 Fetching page ${page} for agentId ${agentId}`)
+      const response = await runsAPI.list(agentId, page, 100) // 100 itens por página
+      console.log(`✅ Page ${page} fetched:`, response.runs.length, 'runs, hasNext:', response.pagination.has_next)
+      allRuns.push(...response.runs)
+      hasNext = response.pagination.has_next
+      page++
+
+      // Proteção contra loop infinito
+      if (page > 100) {
+        console.warn('⚠️ Breaking loop - too many pages')
+        break
+      }
+    }
+
+    console.log('🏁 runsAPI.listAll finished, total runs:', allRuns.length)
+    return allRuns
   }
 }
 
 export const chatAPI = {
-  getSessions: async (agentId: number): Promise<ChatSession[]> => {
-    const response = await api.get(`/agents/${agentId}/chat-sessions`)
+  // Listar sessões de chat com paginação e filtros
+  listSessions: async (
+    page: number = 1,
+    perPage: number = 20,
+    agentId?: number,
+    status: string = 'active',
+    search?: string,
+    minMessages?: number
+  ): Promise<ChatSessionListResponse> => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      per_page: perPage.toString(),
+      status
+    })
+
+    if (agentId) params.append('agent_id', agentId.toString())
+    if (search) params.append('search', search)
+    if (minMessages) params.append('min_messages', minMessages.toString())
+
+    const response = await api.get(`/chat-sessions/?${params.toString()}`)
     return response.data
   },
 
-  createSession: async (agentId: number, title: string): Promise<ChatSession> => {
-    const response = await api.post(`/agents/${agentId}/chat-sessions`, { title })
+  // Criar nova sessão de chat
+  createSession: async (agentId: number, title?: string): Promise<ChatSession> => {
+    const response = await api.post('/chat-sessions/', {
+      agent_id: agentId,
+      title
+    })
     return response.data
   },
 
-  getMessages: async (sessionId: number): Promise<Run[]> => {
-    const response = await api.get(`/chat-sessions/${sessionId}/messages`)
+  // Obter detalhes de uma sessão específica
+  getSession: async (sessionId: number): Promise<ChatSession> => {
+    const response = await api.get(`/chat-sessions/${sessionId}`)
+    return response.data
+  },
+
+  // Obter mensagens de uma sessão com paginação
+  getMessages: async (
+    sessionId: number,
+    page: number = 1,
+    perPage: number = 50
+  ): Promise<MessagesResponse> => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      per_page: perPage.toString()
+    })
+
+    const response = await api.get(`/chat-sessions/${sessionId}/messages?${params.toString()}`)
+    return response.data
+  },
+
+  // Atualizar sessão (título, status)
+  updateSession: async (
+    sessionId: number,
+    data: { title?: string; status?: string }
+  ): Promise<ChatSession> => {
+    const response = await api.put(`/chat-sessions/${sessionId}`, data)
+    return response.data
+  },
+
+  // Deletar sessão
+  deleteSession: async (sessionId: number): Promise<void> => {
+    await api.delete(`/chat-sessions/${sessionId}`)
+  },
+
+  // Obter runs de uma sessão específica
+  getSessionRuns: async (
+    sessionId: number,
+    page: number = 1,
+    perPage: number = 20
+  ): Promise<PaginatedRunsResponse> => {
+    const response = await api.get(`/chat-sessions/${sessionId}/runs?page=${page}&per_page=${perPage}`)
     return response.data
   }
 }
@@ -247,6 +419,46 @@ export const tablesAPI = {
     records_count?: number
   }> => {
     const response = await api.post('/tables/create', data)
+    return response.data
+  }
+}
+
+export const validationAPI = {
+  validateRun: async (runId: number, validationType: string = 'individual', validationModel: string = 'gpt-4o-mini'): Promise<any> => {
+    const response = await api.post(`/validation/runs/${runId}/validate`, {
+      validation_type: validationType,
+      validation_model: validationModel
+    })
+    return response.data
+  },
+
+  getRunValidations: async (runId: number): Promise<any> => {
+    const response = await api.get(`/validation/runs/${runId}/validations`)
+    return response.data
+  },
+
+  getValidationStats: async (): Promise<any> => {
+    const response = await api.get('/validation/validations/stats')
+    return response.data
+  },
+
+  // Novos endpoints para chat sessions
+  validateChatSession: async (sessionId: number, validationType: string = 'individual', validationModel: string = 'gpt-4o-mini', numRunsToCompare?: number): Promise<any> => {
+    const payload: any = {
+      validation_type: validationType,
+      validation_model: validationModel
+    }
+
+    if (numRunsToCompare) {
+      payload.num_runs_to_compare = numRunsToCompare
+    }
+
+    const response = await api.post(`/validation/chat-sessions/${sessionId}/validate`, payload)
+    return response.data
+  },
+
+  getChatSessionValidations: async (sessionId: number): Promise<any> => {
+    const response = await api.get(`/validation/chat-sessions/${sessionId}/validations`)
     return response.data
   }
 }

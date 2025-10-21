@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, UniqueConstraint, Enum
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import JSONB
+import enum
 try:
     from pgvector.sqlalchemy import Vector
     PGVECTOR_AVAILABLE = True
@@ -10,6 +11,12 @@ except ImportError:
 
 Base = declarative_base()
 
+class UserRole(enum.Enum):
+    """Enum para roles de usuário no sistema"""
+    USER = "USER"
+    ADMIN = "ADMIN"
+    SUPER_ADMIN = "SUPER_ADMIN"
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
@@ -17,6 +24,7 @@ class User(Base):
     senha_hash = Column(String(255), nullable=False)
     nome = Column(String(255), nullable=False)
     ativo = Column(Boolean, default=True)
+    role = Column(Enum(UserRole), nullable=False, default=UserRole.USER)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     empresas = relationship("UserEmpresa", back_populates="user")
@@ -78,6 +86,11 @@ class Agent(Base):
     refinement_enabled = Column(Boolean, nullable=False, default=False)
     single_table_mode = Column(Boolean, nullable=False, default=False)
     selected_table = Column(String(255), nullable=True)
+    # Novos campos para UI/UX
+    description = Column(Text, nullable=True)  # Descrição do agente
+    icon = Column(String(100), nullable=True, default="MessageSquare")  # Nome do ícone
+    color = Column(String(100), nullable=True, default="from-blue-500 to-cyan-500")  # Gradiente de cor
+    features = Column(Text, nullable=True)  # JSON array de features como string
     # Versionamento e timestamps
     version = Column(Integer, nullable=False, default=1)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

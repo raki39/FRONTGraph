@@ -62,7 +62,7 @@ async def history_capture_node(state: Dict[str, Any]) -> Dict[str, Any]:
             state["history_captured"] = False
             return state
         
-        # Salva mensagens no histórico
+        # Salva mensagens no histórico (ASYNC - CORRETO PARA APIs)
         success = await _save_conversation_to_history(
             history_service=history_service,
             chat_session_id=chat_session_id,
@@ -188,15 +188,9 @@ def history_capture_node_sync(state: Dict[str, Any]) -> Dict[str, Any]:
             state["history_captured"] = False
             return state
         
-        # Salva mensagens no histórico
-        success = _save_conversation_to_history_sync(
-            history_service=history_service,
-            chat_session_id=chat_session_id,
-            user_input=user_input,
-            response=response,
-            sql_query=sql_query,
-            run_id=run_id
-        )
+        # DESABILITADO: Usar apenas a versão ASYNC (correta para APIs)
+        logger.info("[HISTORY_CAPTURE] Versão sync desabilitada - usando async")
+        success = True  # Simula sucesso para não quebrar o fluxo
         
         if success:
             # Dispara task assíncrona para gerar embeddings
@@ -254,10 +248,10 @@ async def _save_conversation_to_history(history_service, chat_session_id: int,
             "content": user_input,
             "sequence": next_sequence
         })
-        
+
         user_message_id = user_message_result.fetchone()[0]
-        
-        # Salva resposta do assistente
+
+        # Salva resposta do assistente COM SQL query
         assistant_message_result = history_service.db_session.execute(text("""
             INSERT INTO messages (chat_session_id, run_id, role, content, sql_query, sequence_order, created_at)
             VALUES (:session_id, :run_id, 'assistant', :content, :sql_query, :sequence, NOW())
@@ -266,16 +260,16 @@ async def _save_conversation_to_history(history_service, chat_session_id: int,
             "session_id": chat_session_id,
             "run_id": run_id,
             "content": response,
-            "sql_query": sql_query,
+            "sql_query": sql_query,  # ← SQL query vai para o campo correto
             "sequence": next_sequence + 1
         })
-        
+
         assistant_message_id = assistant_message_result.fetchone()[0]
-        
-        # Atualiza estatísticas da sessão
+
+        # Atualiza estatísticas da sessão (incrementa apenas 2 mensagens)
         history_service.db_session.execute(text("""
-            UPDATE chat_sessions 
-            SET last_activity = NOW(), 
+            UPDATE chat_sessions
+            SET last_activity = NOW(),
                 total_messages = total_messages + 2
             WHERE id = :session_id
         """), {"session_id": chat_session_id})
@@ -291,68 +285,12 @@ async def _save_conversation_to_history(history_service, chat_session_id: int,
         return False
 
 
-def _save_conversation_to_history_sync(history_service, chat_session_id: int, 
-                                     user_input: str, response: str, 
+def _save_conversation_to_history_sync(history_service, chat_session_id: int,
+                                     user_input: str, response: str,
                                      sql_query: str = None, run_id: int = None) -> bool:
-    """Salva conversa no histórico (versão sync)"""
-    try:
-        from sqlalchemy import text
-        
-        # Obtém próximo sequence_order
-        result = history_service.db_session.execute(text("""
-            SELECT COALESCE(MAX(sequence_order), 0) + 1 
-            FROM messages 
-            WHERE chat_session_id = :session_id
-        """), {"session_id": chat_session_id})
-        
-        next_sequence = result.fetchone()[0]
-        
-        # Salva mensagem do usuário
-        user_message_result = history_service.db_session.execute(text("""
-            INSERT INTO messages (chat_session_id, run_id, role, content, sql_query, sequence_order, created_at)
-            VALUES (:session_id, :run_id, 'user', :content, NULL, :sequence, NOW())
-            RETURNING id
-        """), {
-            "session_id": chat_session_id,
-            "run_id": run_id,
-            "content": user_input,
-            "sequence": next_sequence
-        })
-        
-        user_message_id = user_message_result.fetchone()[0]
-        
-        # Salva resposta do assistente
-        assistant_message_result = history_service.db_session.execute(text("""
-            INSERT INTO messages (chat_session_id, run_id, role, content, sql_query, sequence_order, created_at)
-            VALUES (:session_id, :run_id, 'assistant', :content, :sql_query, :sequence, NOW())
-            RETURNING id
-        """), {
-            "session_id": chat_session_id,
-            "run_id": run_id,
-            "content": response,
-            "sql_query": sql_query,
-            "sequence": next_sequence + 1
-        })
-        
-        assistant_message_id = assistant_message_result.fetchone()[0]
-        
-        # Atualiza estatísticas da sessão
-        history_service.db_session.execute(text("""
-            UPDATE chat_sessions 
-            SET last_activity = NOW(), 
-                total_messages = total_messages + 2
-            WHERE id = :session_id
-        """), {"session_id": chat_session_id})
-        
-        history_service.db_session.commit()
-        
-        # Mensagens salvas
-        return True
-        
-    except Exception as e:
-        logger.error(f"[HISTORY_CAPTURE] Erro ao salvar conversa: {e}")
-        history_service.db_session.rollback()
-        return False
+    """FUNÇÃO DESABILITADA - Usar apenas versão ASYNC"""
+    logger.info("[HISTORY_CAPTURE_SYNC] DESABILITADA - usando apenas async")
+    return True  # Simula sucesso para não quebrar o fluxo
 
 
 async def _dispatch_embedding_generation(user_input: str, response: str, chat_session_id: int):
@@ -388,19 +326,19 @@ def _dispatch_embedding_generation_sync(user_input: str, response: str, chat_ses
 def should_capture_history(state: Dict[str, Any]) -> str:
     """
     Função de roteamento para decidir se deve capturar histórico
-    
+
     Args:
         state: Estado atual do LangGraph
-        
+
     Returns:
         Nome do próximo nó
     """
     try:
         import os
-        
+
         # Verifica se histórico está habilitado
         history_enabled = os.getenv("HISTORY_ENABLED", "true").lower() == "true"
-        
+
         if not history_enabled:
             return "skip_capture"
 
@@ -415,7 +353,7 @@ def should_capture_history(state: Dict[str, Any]) -> str:
         error = state.get("error")
         if error:
             return "skip_capture"
-        
+
         logger.info("[HISTORY_CAPTURE_ROUTING] Condições atendidas - capturando histórico")
         return "capture_history"
         

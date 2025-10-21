@@ -319,6 +319,21 @@ class SQLAgentManager:
         try:
             logging.info("------- Agent SQL: Executando query -------")
 
+            # LOG SEMPRE ATIVO DO CONTEXTO RECEBIDO (mesmo com histórico desativado)
+            import os
+            has_history = "ULTIMA_INTERACAO" in instruction or "HISTORICO_RELEVANTE" in instruction or "HISTÓRICO" in instruction or "histórico" in instruction
+            has_suggested_query = "Opção de querySQL:" in instruction
+
+            history_status = "✅ Histórico" if has_history else "❌ Sem histórico"
+            query_status = "✅ Query sugerida" if has_suggested_query else "❌ Sem query sugerida"
+            history_enabled = os.getenv("HISTORY_ENABLED", "true").lower() == "true"
+            history_global_status = "HABILITADO" if history_enabled else "DESABILITADO"
+
+            logging.info(f"[SQL_AGENT] Contexto: {len(instruction)} chars | Histórico Global: {history_global_status} | {history_status} | {query_status}")
+            logging.info(f"[SQL_AGENT] 📄 CONTEXTO COMPLETO RECEBIDO:")
+            logging.info(f"{instruction}")
+            logging.info(f"[SQL_AGENT] 📄 FIM DO CONTEXTO")
+
             # Criar handler para capturar SQL
             sql_handler = SQLQueryCaptureHandler()
 

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .core.settings import settings
-from .routers import auth, users, empresas, datasets, connections, agents, runs, tables
+from .routers import auth, users, empresas, datasets, connections, agents, runs, tables, admin, chat_sessions, validation
 
 app = FastAPI(
     title="AgentGraph API",
@@ -56,6 +56,9 @@ app.include_router(connections.router, prefix="/connections", tags=["connections
 app.include_router(agents.router, prefix="/agents", tags=["agents"])
 app.include_router(runs.router, prefix="", tags=["runs"])  # /runs e /agents/{id}/runs
 app.include_router(tables.router, prefix="/tables", tags=["tables"])
+app.include_router(chat_sessions.router, prefix="/chat-sessions", tags=["chat-sessions"])
+app.include_router(validation.router, prefix="/validation", tags=["validation"])
+app.include_router(admin.router, prefix="/admin", tags=["admin"])
 
 @app.get("/healthz")
 def healthcheck():

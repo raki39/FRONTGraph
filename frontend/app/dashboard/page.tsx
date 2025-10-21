@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { DashboardLayout } from '@/components/layout/dashboard-layout'
-import { agentsAPI, connectionsAPI, runsAPI, Agent, Connection, Run } from '@/lib/api'
+import { agentsAPI, connectionsAPI, runsAPI, Agent, Connection, Run, PaginatedRunsResponse } from '@/lib/api'
 import { Loading } from '@/components/ui/loading'
 import { formatDate, getStatusColor, getStatusText } from '@/lib/utils'
 import { Bot, Database, MessageSquare, Activity } from 'lucide-react'
@@ -20,17 +20,17 @@ export default function DashboardPage() {
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const [agents, connections, runs] = await Promise.all([
+        const [agents, connections, runsResponse] = await Promise.all([
           agentsAPI.list(),
           connectionsAPI.list(),
-          runsAPI.list()
+          runsAPI.list(undefined, 1, 5) // Primeira página, 5 itens para recent runs
         ])
 
         setStats({
           agents: agents.length,
           connections: connections.length,
-          totalRuns: runs.length,
-          recentRuns: runs.slice(0, 5)
+          totalRuns: runsResponse.pagination.total_items,
+          recentRuns: runsResponse.runs
         })
       } catch (error) {
         console.error('Erro ao carregar estatísticas:', error)

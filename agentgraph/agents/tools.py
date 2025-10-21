@@ -267,6 +267,14 @@ def prepare_sql_context(user_query: str, db_sample: pd.DataFrame, suggested_quer
     """
     import logging
 
+    # LOG SEMPRE ATIVO PARA DEBUG (mesmo com histórico desativado)
+    import os
+    processing_status = "COM ProcessingAgent" if suggested_query and suggested_query.strip() else "SEM ProcessingAgent"
+    history_status = f"Histórico: {len(history_context)} chars" if history_context and history_context.strip() else "Sem histórico"
+    history_enabled = os.getenv("HISTORY_ENABLED", "true").lower() == "true"
+    history_global_status = "HABILITADO" if history_enabled else "DESABILITADO"
+    logging.info(f"[PREPARE_SQL_CONTEXT] {processing_status} | Histórico Global: {history_global_status} | {history_status}")
+
     # Contexto base
     contexto_base = (
         "Você é um assistente especializado em consultas SQL, geração de querySQL e análise de dados.\n"

@@ -91,14 +91,23 @@ async def process_user_query_node(state: Dict[str, Any]) -> Dict[str, Any]:
             # Obtém contexto histórico (se disponível)
             history_context = state.get("history_context", "")
 
+            # LOG SEMPRE ATIVO PARA DEBUG (mesmo com histórico desativado)
+            processing_enabled = state.get("processing_enabled", False)
+            processing_status = "ATIVADO" if processing_enabled else "DESATIVADO"
+            history_status = f"Histórico: {len(history_context)} chars" if history_context and history_context.strip() else "Sem histórico"
+
+            # Verifica se histórico está habilitado globalmente
+            import os
+            history_enabled = os.getenv("HISTORY_ENABLED", "true").lower() == "true"
+            history_global_status = "HABILITADO" if history_enabled else "DESABILITADO"
+
+            logging.info(f"[QUERY_NODE] ProcessingAgent: {processing_status} | Histórico Global: {history_global_status} | {history_status}")
+
             # Prepara contexto para envio direto ao agentSQL (agora com histórico)
             sql_context = prepare_sql_context(user_input, db_sample, suggested_query, query_observations, history_context)
             state["sql_context"] = sql_context
 
-            logging.info(f"[DEBUG] Tipo de query detectado: {query_type}")
-            if suggested_query:
-                logging.info(f"[DEBUG] Query sugerida pelo Processing Agent incluída no contexto")
-            logging.info(f"[DEBUG] Contexto preparado para agentSQL")
+            logging.info(f"[QUERY_NODE] Tipo: {query_type} | Contexto preparado para AgentSQL")
         else:
             # Para tipos futuros (prediction)
             error_msg = f"Tipo de query '{query_type}' ainda não implementado."

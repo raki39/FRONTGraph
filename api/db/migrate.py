@@ -208,7 +208,11 @@ class DatabaseMigrator:
             else:
                 logger.info("ℹ️ Nenhuma coluna faltante encontrada")
             
-            # 4. Verificação final
+            # 4. Executar migrações específicas
+            logger.info("📋 Executando migrações específicas...")
+            self._run_agent_ui_migration()
+
+            # 5. Verificação final
             logger.info("🔍 Verificação final...")
             if self.verify_schema():
                 logger.info("🎉 MIGRAÇÃO CONCLUÍDA COM SUCESSO!")
@@ -222,7 +226,44 @@ class DatabaseMigrator:
             return False
         finally:
             logger.info("=" * 60)
-    
+
+    def _run_agent_ui_migration(self):
+        """Executa migração específica para campos UI/UX dos agentes"""
+        try:
+            logger.info("🎨 Executando migração de campos UI/UX dos agentes...")
+
+            with self.engine.connect() as conn:
+                # Verifica se as colunas já existem
+                existing_columns = set()
+                try:
+                    columns = self.inspector.get_columns('agents')
+                    existing_columns = {col['name'] for col in columns}
+                except Exception:
+                    logger.warning("⚠️ Não foi possível verificar colunas existentes")
+                    return
+
+                # Lista de colunas para adicionar
+                ui_columns = {
+                    'description': 'TEXT',
+                    'icon': "VARCHAR(100) DEFAULT 'MessageSquare'",
+                    'color': "VARCHAR(100) DEFAULT 'from-blue-500 to-cyan-500'",
+                    'features': 'TEXT'
+                }
+
+                # Adiciona colunas que não existem
+                for column_name, column_def in ui_columns.items():
+                    if column_name not in existing_columns:
+                        logger.info(f"➕ Adicionando coluna 'agents.{column_name}'")
+                        conn.execute(text(f"ALTER TABLE agents ADD COLUMN {column_name} {column_def}"))
+                    else:
+                        logger.info(f"✅ Coluna 'agents.{column_name}' já existe")
+
+                conn.commit()
+                logger.info("✅ Migração de campos UI/UX concluída")
+
+        except Exception as e:
+            logger.error(f"❌ Erro na migração de campos UI/UX: {e}")
+
     def create_seed_data(self):
         """Cria dados iniciais (admin user)"""
         logger.info("🌱 Criando dados iniciais...")

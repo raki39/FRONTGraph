@@ -124,11 +124,10 @@ async def format_final_response_node(state: Dict[str, Any]) -> Dict[str, Any]:
             elif quality == "medium":
                 response += "\n\n🔍 *Resposta complementada*"
 
-        # Adiciona tempo de execução se significativo
-        if execution_time > 2.0:
-            response += f"\n\n⏱️ *Processado em {execution_time:.1f}s*"
+        # NÃO adicionar tempo de execução na resposta (vai para metadata)
+        # NÃO adicionar SQL query na resposta (vai para campo separado)
 
-        # Adiciona SQL query utilizada se disponível
+        # Apenas armazenar SQL query no estado para uso posterior
         sql_query = state.get("sql_query_extracted") or state.get("sql_query")
         connection_type = state.get("connection_type", "")
 
@@ -137,7 +136,8 @@ async def format_final_response_node(state: Dict[str, Any]) -> Dict[str, Any]:
             sql_query_str = str(sql_query).strip()
 
             if sql_query_str and sql_query_str.lower() != 'none':
-                response += f"\n\n---\n\n**Query SQL utilizada:**\n\n```sql\n{sql_query_str}\n```"
+                # Armazena SQL query no estado (não na resposta)
+                state["sql_query_formatted"] = sql_query_str
 
                 # Adiciona indicação para criar tabela apenas para PostgreSQL
                 if connection_type == "postgresql":

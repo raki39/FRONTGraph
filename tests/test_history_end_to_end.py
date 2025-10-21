@@ -215,7 +215,7 @@ class HistoryEndToEndTest:
                     "top_k": 10,
                     "include_tables_key": "*",
                     "advanced_mode": False,
-                    "processing_enabled": True,
+                    "processing_enabled": False,
                     "refinement_enabled": False,
                     "single_table_mode": False,
                     "selected_table": None

@@ -6,7 +6,7 @@ import re
 from typing import Dict, Any, Optional
 
 from langchain_openai import ChatOpenAI
-from langchain.schema import HumanMessage
+from langchain_core.messages import HumanMessage
 from agentgraph.utils.config import OPENAI_API_KEY
 from agentgraph.utils.object_manager import get_object_manager
 

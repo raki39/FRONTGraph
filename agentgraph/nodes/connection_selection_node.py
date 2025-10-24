@@ -28,7 +28,7 @@ async def connection_selection_node(state: Dict[str, Any]) -> Dict[str, Any]:
             # Usando csv como padrão
         
         # Valida tipo de conexão
-        valid_types = ["csv", "postgresql"]
+        valid_types = ["csv", "postgresql", "clickhouse"]
         if connection_type.upper() not in [t.upper() for t in valid_types]:
             error_msg = f"Tipo de conexão inválido: {connection_type}. Tipos válidos: {valid_types}"
             logging.error(f"[CONNECTION_SELECTION] {error_msg}")
@@ -100,6 +100,8 @@ def route_by_connection_type(state: Dict[str, Any]) -> str:
 
     if connection_type.upper() == "POSTGRESQL":
         return "postgresql_connection"
+    elif connection_type.upper() == "CLICKHOUSE":
+        return "clickhouse_connection"
     elif file_path:
         # Há arquivo csv para processar
         return "csv_processing"

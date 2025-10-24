@@ -42,14 +42,18 @@ def create_engine_from_processed_dataframe(processed_df: pd.DataFrame, sql_types
 def create_sql_database(engine) -> SQLDatabase:
     """
     Cria objeto SQLDatabase do LangChain a partir de uma engine
-    
+
     Args:
         engine: SQLAlchemy Engine
-        
+
     Returns:
         SQLDatabase do LangChain
     """
-    return SQLDatabase(engine=engine)
+    # Ignora tipos desconhecidos como 'vector' do pgvector
+    import warnings
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", message=".*Did not recognize type.*")
+        return SQLDatabase(engine=engine)
 
 def get_sample_data(engine, limit: int = 10) -> pd.DataFrame:
     """

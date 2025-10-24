@@ -59,6 +59,7 @@ from agentgraph.nodes.celery_polling_node import (
     celery_task_dispatch_node
 )
 from agentgraph.nodes.postgresql_connection_node import postgresql_connection_node
+from agentgraph.nodes.clickhouse_connection_node import clickhouse_connection_node
 from agentgraph.nodes.question_refinement_node import question_refinement_node, route_after_question_refinement
 from agentgraph.agents.sql_agent import SQLAgentManager
 from agentgraph.agents.tools import CacheManager
@@ -239,6 +240,7 @@ class AgentGraphManager:
             workflow.add_node("connection_selection", connection_selection_node)
             workflow.add_node("validate_connection", validate_connection_input_node)
             workflow.add_node("postgresql_connection", postgresql_connection_node)
+            workflow.add_node("clickhouse_connection", clickhouse_connection_node)
             workflow.add_node("csv_processing", csv_processing_node)
             workflow.add_node("create_database", create_database_from_dataframe_node)
             workflow.add_node("load_database", load_existing_database_node)
@@ -318,6 +320,7 @@ class AgentGraphManager:
                 route_by_connection_type,
                 {
                     "postgresql_connection": "postgresql_connection",
+                    "clickhouse_connection": "clickhouse_connection",
                     "csv_processing": "csv_processing",
                     "load_database": "load_database",
                     "get_db_sample": "get_db_sample"  # Pula conexão se já existe
@@ -326,6 +329,7 @@ class AgentGraphManager:
 
             # Fluxos específicos de conexão (apenas quando necessário)
             workflow.add_edge("postgresql_connection", "get_db_sample")
+            workflow.add_edge("clickhouse_connection", "get_db_sample")
             workflow.add_edge("csv_processing", "create_database")
             workflow.add_edge("create_database", "get_db_sample")
             workflow.add_edge("load_database", "get_db_sample")

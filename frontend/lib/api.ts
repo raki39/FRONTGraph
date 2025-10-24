@@ -53,7 +53,25 @@ export interface Connection {
   tipo: string
   db_uri?: string
   pg_dsn?: string
+  ch_dsn?: string
   created_at: string
+}
+
+export interface PostgreSQLConfig {
+  host: string
+  port: number
+  database: string
+  username: string
+  password: string
+}
+
+export interface ClickHouseConfig {
+  host: string
+  port: number
+  database: string
+  username: string
+  password: string
+  secure: boolean
 }
 
 export interface Agent {
@@ -183,12 +201,21 @@ export const connectionsAPI = {
     return response.data
   },
 
-  update: async (id: number, data: { pg_dsn: string }): Promise<Connection> => {
+  update: async (id: number, data: {
+    pg_dsn?: string
+    postgresql_config?: PostgreSQLConfig
+    clickhouse_config?: ClickHouseConfig
+  }): Promise<Connection> => {
     const response = await api.patch(`/connections/${id}`, data)
     return response.data
   },
 
-  test: async (data: { tipo: string; pg_dsn: string }): Promise<{ valid: boolean; message: string; tipo: string }> => {
+  test: async (data: {
+    tipo: string
+    pg_dsn?: string
+    postgresql_config?: PostgreSQLConfig
+    clickhouse_config?: ClickHouseConfig
+  }): Promise<{ valid: boolean; message: string; tipo: string }> => {
     const response = await api.post('/connections/test', data)
     return response.data
   },
@@ -196,6 +223,8 @@ export const connectionsAPI = {
   create: async (data: {
     tipo: string
     pg_dsn?: string
+    postgresql_config?: PostgreSQLConfig
+    clickhouse_config?: ClickHouseConfig
     dataset_id?: number
   }): Promise<Connection> => {
     const response = await api.post('/connections/', data)

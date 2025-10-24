@@ -86,6 +86,9 @@ async def process_initial_context_node(state: Dict[str, Any]) -> Dict[str, Any]:
             if connection_type.lower() == "postgresql" and engine_dialect != "postgresql":
                 logging.error(f"[PROCESSING NODE] INCONSISTÊNCIA: connection_type={connection_type} mas engine_dialect={engine_dialect}")
                 logging.error(f"[PROCESSING NODE] Isso indica que está usando o engine errado!")
+            elif connection_type.lower() == "clickhouse" and engine_dialect != "clickhouse":
+                logging.error(f"[PROCESSING NODE] INCONSISTÊNCIA: connection_type={connection_type} mas engine_dialect={engine_dialect}")
+                logging.error(f"[PROCESSING NODE] Isso indica que está usando o engine errado!")
             elif connection_type.lower() == "csv" and engine_dialect != "sqlite":
                 logging.error(f"[PROCESSING NODE] INCONSISTÊNCIA: connection_type={connection_type} mas engine_dialect={engine_dialect}")
                 logging.error(f"[PROCESSING NODE] Isso indica que está usando o engine errado!")
@@ -116,6 +119,31 @@ async def process_initial_context_node(state: Dict[str, Any]) -> Dict[str, Any]:
                         available_tables = [row[0] for row in tables_result.fetchall()]
 
                     # Processa cada tabela (máximo 5 para performance)
+                    for table_name in available_tables[:20]:
+                        columns_data[table_name] = _extract_table_columns_info(engine, table_name)
+
+            elif engine_dialect == "clickhouse":
+                # Para ClickHouse, processa baseado no modo
+                if single_table_mode and selected_table:
+                    # Modo tabela única - processa APENAS a tabela selecionada
+                    logging.info(f"[PROCESSING NODE] ClickHouse - Modo tabela única: {selected_table}")
+                    columns_data[selected_table] = _extract_table_columns_info(engine, selected_table)
+
+                else:
+                    # Modo multi-tabela - processa TODAS as tabelas disponíveis
+                    logging.info(f"[PROCESSING NODE] ClickHouse - Modo multi-tabela")
+
+                    # Obtém lista de todas as tabelas
+                    with engine.connect() as conn:
+                        tables_result = conn.execute(sa.text("""
+                            SELECT name
+                            FROM system.tables
+                            WHERE database != 'system'
+                            ORDER BY name
+                        """))
+                        available_tables = [row[0] for row in tables_result.fetchall()]
+
+                    # Processa cada tabela (máximo 20 para performance)
                     for table_name in available_tables[:20]:
                         columns_data[table_name] = _extract_table_columns_info(engine, table_name)
 
@@ -152,9 +180,9 @@ async def process_initial_context_node(state: Dict[str, Any]) -> Dict[str, Any]:
         single_table_mode = state.get("single_table_mode", False)
         selected_table = state.get("selected_table")
 
-        # Obtém lista de tabelas disponíveis se for PostgreSQL
+        # Obtém lista de tabelas disponíveis se for PostgreSQL ou ClickHouse
         available_tables = None
-        if engine_dialect == "postgresql":
+        if engine_dialect in ["postgresql", "clickhouse"]:
             available_tables = list(columns_data.keys())
 
         # Obtém contexto histórico (se disponível)
@@ -384,6 +412,26 @@ def _extract_table_columns_info(engine, table_name: str) -> list:
                                 "stats": ""
                             }
                             columns_info.append(col_info)
+
+                    # Para ClickHouse, obtém informações das colunas do system.columns
+                    elif str(engine.dialect.name).lower() == "clickhouse":
+                        schema_result = conn.execute(sa.text(f"""
+                            SELECT name, type
+                            FROM system.columns
+                            WHERE table = '{table_name}'
+                            ORDER BY position
+                        """))
+
+                        columns_info = []
+                        for row in schema_result.fetchall():
+                            col_info = {
+                                "column": row[0],
+                                "type": row[1],
+                                "examples": "(sem dados)",
+                                "stats": ""
+                            }
+                            columns_info.append(col_info)
+
                     else:
                         # Para SQLite, usa PRAGMA
                         pragma_result = conn.execute(sa.text(f"PRAGMA table_info({table_name})"))
@@ -422,6 +470,26 @@ def _extract_table_columns_info(engine, table_name: str) -> list:
                                 "stats": ""
                             }
                             columns_info.append(col_info)
+
+                    # Para ClickHouse, obtém informações das colunas do system.columns
+                    elif str(engine.dialect.name).lower() == "clickhouse":
+                        schema_result = conn.execute(sa.text(f"""
+                            SELECT name, type
+                            FROM system.columns
+                            WHERE table = '{table_name}'
+                            ORDER BY position
+                        """))
+
+                        columns_info = []
+                        for row in schema_result.fetchall():
+                            col_info = {
+                                "column": row[0],
+                                "type": row[1],
+                                "examples": "(erro ao acessar dados)",
+                                "stats": ""
+                            }
+                            columns_info.append(col_info)
+
                     else:
                         # Para SQLite
                         pragma_result = conn.execute(sa.text(f"PRAGMA table_info({table_name})"))
@@ -434,7 +502,7 @@ def _extract_table_columns_info(engine, table_name: str) -> list:
                                 "stats": ""
                             }
                             columns_info.append(col_info)
-                            
+
                     return columns_info
 
                 except Exception as e2:

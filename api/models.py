@@ -65,9 +65,10 @@ class AgentConnection(Base):
     id = Column(Integer, primary_key=True, index=True)
     owner_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     owner_empresa_id = Column(Integer, ForeignKey("empresas.id"), nullable=True)
-    tipo = Column(String(20), nullable=False)  # sqlite/duckdb/postgres
+    tipo = Column(String(20), nullable=False)  # sqlite/duckdb/postgres/clickhouse
     db_uri = Column(Text, nullable=True)
     pg_dsn = Column(Text, nullable=True)  # alternativa explícita para Postgres
+    ch_dsn = Column(Text, nullable=True)  # alternativa explícita para ClickHouse
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class Agent(Base):

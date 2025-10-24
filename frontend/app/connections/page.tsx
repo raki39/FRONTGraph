@@ -23,19 +23,32 @@ export default function ConnectionsPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [connectionToEdit, setConnectionToEdit] = useState<Connection | null>(null)
+  const [dbType, setDbType] = useState<'postgres' | 'clickhouse'>('postgres')
   const [editFormData, setEditFormData] = useState({
     pg_host: '',
     pg_port: 5432,
     pg_database: '',
     pg_username: '',
-    pg_password: ''
+    pg_password: '',
+    ch_host: '',
+    ch_port: 8123,
+    ch_database: 'default',
+    ch_username: 'default',
+    ch_password: '',
+    ch_secure: false
   })
   const [formData, setFormData] = useState({
     pg_host: '',
     pg_port: 5432,
     pg_database: '',
     pg_username: '',
-    pg_password: ''
+    pg_password: '',
+    ch_host: '',
+    ch_port: 8123,
+    ch_database: 'default',
+    ch_username: 'default',
+    ch_password: '',
+    ch_secure: false
   })
 
   useEffect(() => {
@@ -67,13 +80,30 @@ export default function ConnectionsPage() {
     setIsCreating(true)
 
     try {
-      // Construir a connection string PostgreSQL
-      const pg_dsn = `postgresql://${formData.pg_username}:${formData.pg_password}@${formData.pg_host}:${formData.pg_port}/${formData.pg_database}`
-
-      await connectionsAPI.create({
-        tipo: 'postgres',  // Usar 'postgres' conforme a API
-        pg_dsn: pg_dsn
-      })
+      if (dbType === 'postgres') {
+        await connectionsAPI.create({
+          tipo: 'postgres',
+          postgresql_config: {
+            host: formData.pg_host,
+            port: formData.pg_port,
+            database: formData.pg_database,
+            username: formData.pg_username,
+            password: formData.pg_password
+          }
+        })
+      } else {
+        await connectionsAPI.create({
+          tipo: 'clickhouse',
+          clickhouse_config: {
+            host: formData.ch_host,
+            port: formData.ch_port,
+            database: formData.ch_database,
+            username: formData.ch_username,
+            password: formData.ch_password,
+            secure: formData.ch_secure
+          }
+        })
+      }
 
       toast.success('Conexão criada com sucesso!')
       setIsModalOpen(false)
@@ -82,8 +112,15 @@ export default function ConnectionsPage() {
         pg_port: 5432,
         pg_database: '',
         pg_username: '',
-        pg_password: ''
+        pg_password: '',
+        ch_host: '',
+        ch_port: 8123,
+        ch_database: 'default',
+        ch_username: 'default',
+        ch_password: '',
+        ch_secure: false
       })
+      setDbType('postgres')
       loadConnections()
     } catch (error: any) {
       const message = error.response?.data?.detail || 'Erro ao criar conexão'
@@ -178,15 +215,35 @@ export default function ConnectionsPage() {
   const handleTestConnection = async (formData: any) => {
     setIsTesting(true)
     try {
-      const pg_dsn = `postgresql://${formData.pg_username}:${formData.pg_password}@${formData.pg_host}:${formData.pg_port}/${formData.pg_database}`
+      let response
 
-      const response = await connectionsAPI.test({
-        tipo: 'postgres',
-        pg_dsn: pg_dsn
-      })
+      if (dbType === 'postgres') {
+        response = await connectionsAPI.test({
+          tipo: 'postgres',
+          postgresql_config: {
+            host: formData.pg_host,
+            port: formData.pg_port,
+            database: formData.pg_database,
+            username: formData.pg_username,
+            password: formData.pg_password
+          }
+        })
+      } else {
+        response = await connectionsAPI.test({
+          tipo: 'clickhouse',
+          clickhouse_config: {
+            host: formData.ch_host,
+            port: formData.ch_port,
+            database: formData.ch_database,
+            username: formData.ch_username,
+            password: formData.ch_password,
+            secure: formData.ch_secure
+          }
+        })
+      }
 
       if (response.valid) {
-        toast.success('✅ Conexão testada com sucesso!')
+        toast.success(`✅ ${response.message}`)
       } else {
         toast.error(`❌ ${response.message}`)
       }
@@ -226,7 +283,7 @@ export default function ConnectionsPage() {
             <Database className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-4 text-lg font-medium text-gray-900">Nenhuma conexão</h3>
             <p className="mt-2 text-gray-500">
-              Comece criando uma conexão com seu banco PostgreSQL.
+              Comece criando uma conexão com PostgreSQL ou ClickHouse.
             </p>
             <button
               onClick={() => setIsModalOpen(true)}
@@ -241,14 +298,24 @@ export default function ConnectionsPage() {
               <div key={connection.id} className="card p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <Database className="h-6 w-6 text-green-600" />
+                    <div className={`p-2 rounded-lg ${
+                      connection.tipo === 'clickhouse'
+                        ? 'bg-orange-100'
+                        : 'bg-green-100'
+                    }`}>
+                      <Database className={`h-6 w-6 ${
+                        connection.tipo === 'clickhouse'
+                          ? 'text-orange-600'
+                          : 'text-green-600'
+                      }`} />
                     </div>
                     <div className="ml-3">
                       <h3 className="text-lg font-medium text-gray-900">
-                        Conexão PostgreSQL #{connection.id}
+                        Conexão {connection.tipo === 'clickhouse' ? 'ClickHouse' : 'PostgreSQL'} #{connection.id}
                       </h3>
-                      <p className="text-sm text-gray-500">PostgreSQL</p>
+                      <p className="text-sm text-gray-500">
+                        {connection.tipo === 'clickhouse' ? 'ClickHouse (OLAP)' : 'PostgreSQL (OLTP)'}
+                      </p>
                     </div>
                   </div>
                   <DropdownMenu
@@ -273,7 +340,10 @@ export default function ConnectionsPage() {
                   <div className="text-sm">
                     <span className="text-gray-500">DSN:</span>
                     <span className="ml-2 text-gray-900 font-mono text-xs">
-                      {connection.pg_dsn ? connection.pg_dsn.replace(/:[^:@]*@/, ':***@') : 'N/A'}
+                      {connection.tipo === 'clickhouse'
+                        ? (connection.ch_dsn ? connection.ch_dsn.replace(/:[^:@]*@/, ':***@') : 'N/A')
+                        : (connection.pg_dsn ? connection.pg_dsn.replace(/:[^:@]*@/, ':***@') : 'N/A')
+                      }
                     </span>
                   </div>
                   <div className="text-sm">
@@ -296,80 +366,205 @@ export default function ConnectionsPage() {
         <Modal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          title="Nova Conexão PostgreSQL"
+          title="Nova Conexão de Banco de Dados"
         >
           <form onSubmit={handleSubmit} className="space-y-4">
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Host
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.pg_host}
-                  onChange={(e) => setFormData({ ...formData, pg_host: e.target.value })}
-                  className="input-field mt-1"
-                  placeholder="localhost"
-                />
+            {/* Seletor de tipo de banco */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tipo de Banco de Dados
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDbType('postgres')}
+                  className={`p-4 border-2 rounded-lg text-left transition-all ${
+                    dbType === 'postgres'
+                      ? 'border-green-500 bg-green-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-semibold text-gray-900">PostgreSQL</div>
+                  <div className="text-xs text-gray-500 mt-1">OLTP - Transacional</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDbType('clickhouse')}
+                  className={`p-4 border-2 rounded-lg text-left transition-all ${
+                    dbType === 'clickhouse'
+                      ? 'border-orange-500 bg-orange-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="font-semibold text-gray-900">ClickHouse</div>
+                  <div className="text-xs text-gray-500 mt-1">OLAP - Analítico</div>
+                </button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Porta
-                </label>
-                <input
-                  type="number"
-                  required
-                  value={formData.pg_port}
-                  onChange={(e) => setFormData({ ...formData, pg_port: parseInt(e.target.value) })}
-                  className="input-field mt-1"
-                  placeholder="5432"
-                />
-              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Database
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.pg_database}
-                onChange={(e) => setFormData({ ...formData, pg_database: e.target.value })}
-                className="input-field mt-1"
-                placeholder="nome_do_banco"
-              />
-            </div>
+            {/* Campos PostgreSQL */}
+            {dbType === 'postgres' && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Host
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.pg_host}
+                      onChange={(e) => setFormData({ ...formData, pg_host: e.target.value })}
+                      className="input-field mt-1"
+                      placeholder="localhost"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Porta
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={formData.pg_port}
+                      onChange={(e) => setFormData({ ...formData, pg_port: parseInt(e.target.value) })}
+                      className="input-field mt-1"
+                      placeholder="5432"
+                    />
+                  </div>
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Usuário
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.pg_username}
-                onChange={(e) => setFormData({ ...formData, pg_username: e.target.value })}
-                className="input-field mt-1"
-                placeholder="postgres"
-              />
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Database
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.pg_database}
+                    onChange={(e) => setFormData({ ...formData, pg_database: e.target.value })}
+                    className="input-field mt-1"
+                    placeholder="nome_do_banco"
+                  />
+                </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">
-                Senha
-              </label>
-              <input
-                type="password"
-                required
-                value={formData.pg_password}
-                onChange={(e) => setFormData({ ...formData, pg_password: e.target.value })}
-                className="input-field mt-1"
-                placeholder="••••••••"
-              />
-            </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Usuário
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.pg_username}
+                    onChange={(e) => setFormData({ ...formData, pg_username: e.target.value })}
+                    className="input-field mt-1"
+                    placeholder="postgres"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Senha
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={formData.pg_password}
+                    onChange={(e) => setFormData({ ...formData, pg_password: e.target.value })}
+                    className="input-field mt-1"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Campos ClickHouse */}
+            {dbType === 'clickhouse' && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Host
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.ch_host}
+                      onChange={(e) => setFormData({ ...formData, ch_host: e.target.value })}
+                      className="input-field mt-1"
+                      placeholder="localhost ou clickhouse.cloud"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Porta
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={formData.ch_port}
+                      onChange={(e) => setFormData({ ...formData, ch_port: parseInt(e.target.value) })}
+                      className="input-field mt-1"
+                      placeholder="8123 (HTTP) ou 8443 (HTTPS)"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Database
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.ch_database}
+                    onChange={(e) => setFormData({ ...formData, ch_database: e.target.value })}
+                    className="input-field mt-1"
+                    placeholder="default"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Usuário
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.ch_username}
+                    onChange={(e) => setFormData({ ...formData, ch_username: e.target.value })}
+                    className="input-field mt-1"
+                    placeholder="default"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Senha
+                  </label>
+                  <input
+                    type="password"
+                    value={formData.ch_password}
+                    onChange={(e) => setFormData({ ...formData, ch_password: e.target.value })}
+                    className="input-field mt-1"
+                    placeholder="••••••••"
+                  />
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="ch_secure"
+                    checked={formData.ch_secure}
+                    onChange={(e) => setFormData({ ...formData, ch_secure: e.target.checked })}
+                    className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="ch_secure" className="ml-2 block text-sm text-gray-700">
+                    Usar HTTPS (recomendado para ClickHouse Cloud)
+                  </label>
+                </div>
+              </>
+            )}
 
             <div className="flex justify-between pt-4">
               <button

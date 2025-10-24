@@ -86,6 +86,12 @@ async def celery_task_dispatch_node(state: Dict[str, Any]) -> Dict[str, Any]:
             agent_config['single_table_mode'] = state.get('single_table_mode', False)
             agent_config['selected_table'] = state.get('selected_table')
 
+        elif agent_config['connection_type'] == 'clickhouse':
+            # Para ClickHouse, salvar configurações de conexão
+            agent_config['clickhouse_config'] = state.get('clickhouse_config', {})
+            agent_config['single_table_mode'] = state.get('single_table_mode', False)
+            agent_config['selected_table'] = state.get('selected_table')
+
         # Salvar configuração no Redis
         success = save_agent_config_to_redis(agent_id, agent_config)
         if not success:

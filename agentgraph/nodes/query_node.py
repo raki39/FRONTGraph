@@ -127,9 +127,9 @@ async def process_user_query_node(state: Dict[str, Any]) -> Dict[str, Any]:
         if not sql_agent:
             raise ValueError("Agente SQL não encontrado")
 
-        # Verifica se precisa recriar o agente SQL para PostgreSQL com configurações atuais
+        # Verifica se precisa recriar o agente SQL para PostgreSQL/ClickHouse com configurações atuais
         connection_type = state.get("connection_type", "csv")
-        if connection_type == "postgresql":
+        if connection_type in ["postgresql", "clickhouse"]:
             single_table_mode = state.get("single_table_mode", False)
             selected_table = state.get("selected_table")
             selected_model = state.get("selected_model", "gpt-4o-mini")
@@ -146,7 +146,7 @@ async def process_user_query_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 selected_model != current_model or
                 new_top_k != current_top_k):
 
-                logging.info(f"[QUERY] Recriando agente SQL - Modo: {'único' if single_table_mode else 'multi'}, Tabela: {selected_table}, TOP_K: {current_top_k} → {new_top_k}")
+                logging.info(f"[QUERY] Recriando agente SQL ({connection_type}) - Modo: {'único' if single_table_mode else 'multi'}, Tabela: {selected_table}, TOP_K: {current_top_k} → {new_top_k}")
 
                 # Recria o agente com as novas configurações
                 top_k = new_top_k

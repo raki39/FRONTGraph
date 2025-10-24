@@ -210,27 +210,34 @@ async def load_existing_database_node(state: Dict[str, Any]) -> Dict[str, Any]:
 async def get_database_sample_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     Nó para obter amostra dos dados do banco
-    
+
     Args:
         state: Estado contendo ID da engine
-        
+
     Returns:
         Estado atualizado com amostra dos dados
     """
     try:
+        import warnings
+
         obj_manager = get_object_manager()
-        
+
         # Recupera engine
         engine_id = state.get("engine_id")
         if not engine_id:
             raise ValueError("ID da engine não encontrado")
-        
+
         engine = obj_manager.get_engine(engine_id)
         if not engine:
             raise ValueError("Engine não encontrada")
-        
+
         # Determina qual tabela usar para amostra
         connection_type = state.get("connection_type", "csv")
+
+        # Filtra warnings sobre information_schema para ClickHouse
+        if connection_type == "clickhouse":
+            warnings.filterwarnings("ignore", message=".*Did not recognize type.*")
+            warnings.filterwarnings("ignore", category=Warning)
 
         if connection_type == "postgresql":
             # Para PostgreSQL, detecta dinamicamente a primeira tabela disponível com dados
@@ -273,6 +280,51 @@ async def get_database_sample_node(state: Dict[str, Any]) -> Dict[str, Any]:
             except Exception as e:
                 logging.error(f"[DATABASE] Erro ao detectar tabelas PostgreSQL: {e}")
                 raise ValueError(f"Erro ao acessar tabelas PostgreSQL: {e}")
+
+        elif connection_type == "clickhouse":
+            # Para ClickHouse, detecta dinamicamente a primeira tabela disponível com dados
+            import sqlalchemy as sa
+
+            try:
+                with engine.connect() as conn:
+                    # Obtém lista de tabelas disponíveis no ClickHouse
+                    # IMPORTANTE: Usar system.tables, NÃO information_schema
+                    tables_result = conn.execute(sa.text("""
+                        SELECT name
+                        FROM system.tables
+                        WHERE database != 'system'
+                        ORDER BY name
+                    """))
+                    available_tables = [row[0] for row in tables_result.fetchall()]
+
+                    if not available_tables:
+                        raise ValueError("Nenhuma tabela encontrada no banco ClickHouse")
+
+                    logging.info(f"[DATABASE] ClickHouse - tabelas encontradas: {available_tables}")
+
+                    # Tenta encontrar uma tabela com dados
+                    table_name = None
+                    for table in available_tables:
+                        try:
+                            # Verifica se a tabela tem dados usando backticks para escapar nomes
+                            count_result = conn.execute(sa.text(f"SELECT COUNT(*) FROM `{table}` LIMIT 1"))
+                            count = count_result.scalar()
+                            if count > 0:
+                                table_name = table
+                                logging.info(f"[DATABASE] ClickHouse - usando tabela '{table_name}' para amostra ({count} registros)")
+                                break
+                        except Exception as e:
+                            logging.debug(f"[DATABASE] Tabela '{table}' não tem dados ou erro ao verificar: {type(e).__name__}")
+                            continue
+
+                    # Se nenhuma tabela tem dados, usa a primeira disponível
+                    if not table_name:
+                        table_name = available_tables[0]
+                        logging.info(f"[DATABASE] ClickHouse - usando primeira tabela '{table_name}' (sem dados detectados)")
+
+            except Exception as e:
+                logging.error(f"[DATABASE] Erro ao detectar tabelas ClickHouse: {e}")
+                raise ValueError(f"Erro ao acessar tabelas ClickHouse: {e}")
 
         else:
             # Para CSV/SQLite, detectar automaticamente o nome da tabela

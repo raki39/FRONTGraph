@@ -184,17 +184,17 @@ def validate_csv_file_path(file_path: str) -> Tuple[bool, Optional[str]]:
 def validate_connection_state(state: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     """
     Valida estado de conexão completo
-    
+
     Args:
         state: Estado da conexão
-        
+
     Returns:
         Tupla (válido, mensagem_erro)
     """
     try:
         connection_type = state.get("connection_type", "csv")
-        
-        if connection_type.lower() not in ["csv", "postgresql"]:
+
+        if connection_type.lower() not in ["csv", "postgresql", "clickhouse"]:
             return False, f"Tipo de conexão inválido: {connection_type}"
 
         if connection_type.lower() == "postgresql":
@@ -203,6 +203,15 @@ def validate_connection_state(state: Dict[str, Any]) -> Tuple[bool, Optional[str
                 return False, "Configuração postgresql ausente"
 
             return validate_postgresql_config(postgresql_config)
+
+        elif connection_type.lower() == "clickhouse":
+            clickhouse_config = state.get("clickhouse_config")
+            if not clickhouse_config:
+                return False, "Configuração clickhouse ausente"
+
+            # Validação básica de ClickHouse
+            from agentgraph.nodes.clickhouse_connection_node import validate_clickhouse_config
+            return validate_clickhouse_config(clickhouse_config)
 
         elif connection_type.lower() == "csv":
             file_path = state.get("file_path")
@@ -215,11 +224,11 @@ def validate_connection_state(state: Dict[str, Any]) -> Tuple[bool, Optional[str
 
                 if not os.path.exists(SQL_DB_PATH):
                     return False, "Nenhum arquivo csv fornecido e nenhum banco existente"
-                
+
                 return True, None
-        
+
         return True, None
-        
+
     except Exception as e:
         return False, f"Erro na validação do estado: {e}"
 

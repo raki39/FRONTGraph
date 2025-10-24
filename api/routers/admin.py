@@ -430,22 +430,48 @@ def admin_create_connection(
             db_uri=ds.db_uri
         )
     elif payload.tipo.lower() == "postgres":
-        if not payload.pg_dsn:
-            raise HTTPException(status_code=400, detail="pg_dsn é obrigatório para tipo postgres")
+        # Suporta tanto pg_dsn (legacy) quanto postgresql_config (novo)
+        from ..routers.connections import test_connection, build_postgresql_uri
+
+        if payload.postgresql_config:
+            pg_dsn = build_postgresql_uri(payload.postgresql_config)
+        elif payload.pg_dsn:
+            pg_dsn = payload.pg_dsn
+        else:
+            raise HTTPException(status_code=400, detail="pg_dsn ou postgresql_config é obrigatório para tipo postgres")
 
         # Testar a conexão antes de criar
-        from ..routers.connections import test_connection
-        is_valid, error_message = test_connection(payload.pg_dsn)
+        is_valid, error_message = test_connection(pg_dsn, "postgres")
         if not is_valid:
             raise HTTPException(status_code=400, detail=f"Falha ao conectar: {error_message}")
 
         conn = AgentConnection(
             owner_user_id=payload.owner_user_id,
             tipo="postgres",
-            pg_dsn=payload.pg_dsn
+            pg_dsn=pg_dsn
+        )
+    elif payload.tipo.lower() == "clickhouse":
+        from ..routers.connections import test_connection, build_clickhouse_uri
+
+        if payload.clickhouse_config:
+            ch_dsn = build_clickhouse_uri(payload.clickhouse_config)
+        elif payload.ch_dsn:
+            ch_dsn = payload.ch_dsn
+        else:
+            raise HTTPException(status_code=400, detail="ch_dsn ou clickhouse_config é obrigatório para tipo clickhouse")
+
+        # Testar a conexão antes de criar
+        is_valid, error_message = test_connection(ch_dsn, "clickhouse")
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=f"Falha ao conectar: {error_message}")
+
+        conn = AgentConnection(
+            owner_user_id=payload.owner_user_id,
+            tipo="clickhouse",
+            ch_dsn=ch_dsn
         )
     else:
-        raise HTTPException(status_code=400, detail="tipo inválido: use sqlite/duckdb/postgres")
+        raise HTTPException(status_code=400, detail="tipo inválido: use sqlite/duckdb/postgres/clickhouse")
 
     db.add(conn)
     db.commit()

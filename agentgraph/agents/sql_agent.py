@@ -10,8 +10,8 @@ from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.agent_toolkits import create_sql_agent
 from langchain_community.utilities import SQLDatabase
-from langchain.callbacks.base import BaseCallbackHandler
-from langchain.schema import AgentAction, AgentFinish
+from langchain_core.callbacks.base import BaseCallbackHandler
+from langchain_core.agents import AgentAction, AgentFinish
 
 
 from agentgraph.utils.config import (
@@ -146,10 +146,28 @@ def create_sql_agent_executor(db: SQLDatabase, model_name: str = "gpt-4o-mini", 
         # Se modo tabela única, cria SQLDatabase restrito
         if single_table_mode and selected_table:
             # Cria uma nova instância do SQLDatabase restrita à tabela selecionada
-            restricted_db = SQLDatabase.from_uri(
-                db._engine.url,
-                include_tables=[selected_table]
-            )
+            # Usa create_engine + SQLDatabase com warnings filtrados para evitar reflection de information_schema
+            import warnings
+            from sqlalchemy import create_engine as sa_create_engine
+
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message=".*Did not recognize type.*")
+                warnings.filterwarnings("ignore", category=Warning)
+
+                # Cria engine a partir da URL existente
+                restricted_engine = sa_create_engine(
+                    str(db._engine.url),
+                    pool_timeout=30,
+                    pool_recycle=3600,
+                    echo=False
+                )
+
+                # Cria SQLDatabase restrito com include_tables
+                restricted_db = SQLDatabase(
+                    engine=restricted_engine,
+                    include_tables=[selected_table]
+                )
+
             logging.info(f"[SQL_AGENT] Criando agente em modo tabela única: {selected_table}")
             db_to_use = restricted_db
         else:

@@ -8,7 +8,7 @@ from langchain_openai import ChatOpenAI
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.llms import HuggingFaceEndpoint
-from langchain.schema import HumanMessage
+from langchain_core.messages import HumanMessage
 
 from agentgraph.utils.config import (
     TEMPERATURE,

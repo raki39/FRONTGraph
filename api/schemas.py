@@ -68,20 +68,42 @@ class DatasetOut(BaseModel):
         from_attributes = True
 
 # Connections
+class PostgreSQLConfig(BaseModel):
+    """Configuração para conexão PostgreSQL"""
+    host: str
+    port: int = 5432
+    database: str
+    username: str
+    password: str
+
+class ClickHouseConfig(BaseModel):
+    """Configuração para conexão ClickHouse"""
+    host: str
+    port: int = 8123  # HTTP port padrão
+    database: str = "default"
+    username: str = "default"
+    password: str = ""
+    secure: bool = False  # HTTPS ou HTTP
+
 class ConnectionCreate(BaseModel):
-    tipo: str  # sqlite/duckdb/postgres
+    tipo: str  # sqlite/duckdb/postgres/clickhouse
     dataset_id: Optional[int] = None  # para csv/sqlite
-    pg_dsn: Optional[str] = None
+    pg_dsn: Optional[str] = None  # para postgres (legacy)
+    postgresql_config: Optional[PostgreSQLConfig] = None  # para postgres (novo)
+    clickhouse_config: Optional[ClickHouseConfig] = None  # para clickhouse
 
 class ConnectionUpdate(BaseModel):
     pg_dsn: Optional[str] = None
+    postgresql_config: Optional[PostgreSQLConfig] = None
+    clickhouse_config: Optional[ClickHouseConfig] = None
 
 class ConnectionOut(BaseModel):
     id: int
-    owner_user_id: Optional[int]
+    owner_user_id: Optional[int] = None
     tipo: str
-    db_uri: Optional[str]
-    pg_dsn: Optional[str]
+    db_uri: Optional[str] = None
+    pg_dsn: Optional[str] = None
+    ch_dsn: Optional[str] = None
     created_at: datetime
     class Config:
         from_attributes = True
@@ -328,15 +350,21 @@ class AdminDatasetOut(DatasetOut):
 
 # Admin Connection Management
 class AdminConnectionCreate(BaseModel):
-    tipo: str  # sqlite/duckdb/postgres
+    tipo: str  # sqlite/duckdb/postgres/clickhouse
     dataset_id: Optional[int] = None
     pg_dsn: Optional[str] = None
+    ch_dsn: Optional[str] = None
+    postgresql_config: Optional[PostgreSQLConfig] = None
+    clickhouse_config: Optional[ClickHouseConfig] = None
     owner_user_id: Optional[int] = None
     owner_empresa_id: Optional[int] = None
 
 class AdminConnectionUpdate(BaseModel):
     tipo: Optional[str] = None
     pg_dsn: Optional[str] = None
+    ch_dsn: Optional[str] = None
+    postgresql_config: Optional[PostgreSQLConfig] = None
+    clickhouse_config: Optional[ClickHouseConfig] = None
     owner_user_id: Optional[int] = None
     owner_empresa_id: Optional[int] = None
 

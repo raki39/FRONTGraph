@@ -21,6 +21,8 @@ sqlalchemy>=2.0.0
 numpy>=1.24.0
 psycopg2-binary>=2.9.0
 pgvector>=0.2.0
+clickhouse-sqlalchemy>=0.3.2
+clickhouse-driver>=0.2.9
 
 # AI/ML Libraries
 huggingface_hub>=0.20.0

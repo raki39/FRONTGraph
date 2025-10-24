@@ -176,6 +176,28 @@ def _build_db_uri_or_path(agent_config: Dict[str, Any]) -> str:
         if not all(k in pg and pg[k] for k in required):
             raise Exception("Configuração PostgreSQL incompleta. Forneça username, password, host, port, database.")
         return f"postgresql://{pg['username']}:{pg['password']}@{pg['host']}:{pg['port']}/{pg['database']}"
+    elif connection_type == 'clickhouse':
+        # Usa config explícita ou string db_uri, se existir
+        if agent_config.get('db_uri'):
+            return agent_config['db_uri']
+        ch = agent_config.get('clickhouse_config', {})
+        required = ['host']
+        if not all(k in ch and ch[k] for k in required):
+            raise Exception("Configuração ClickHouse incompleta. Forneça pelo menos 'host'.")
+
+        # Constrói URI do ClickHouse
+        host = ch.get('host')
+        port = ch.get('port', 8123)
+        database = ch.get('database', 'default')
+        username = ch.get('username', 'default')
+        password = ch.get('password', '')
+        secure = ch.get('secure', False)
+
+        protocol = "https" if secure else "http"
+        if password:
+            return f"clickhouse+http://{username}:{password}@{host}:{port}/{database}?protocol={protocol}"
+        else:
+            return f"clickhouse+http://{username}@{host}:{port}/{database}?protocol={protocol}"
     else:
         raise Exception(f"Tipo de conexão não suportado: {connection_type}")
 
@@ -978,7 +1000,8 @@ def generate_message_embedding_task(self, message_content: str, chat_session_id:
     logger = logging.getLogger(__name__)
 
     try:
-        # Geração de embedding iniciada
+        logger.info(f"[EMBEDDING_TASK] Iniciando geração de embedding para sessão {chat_session_id}")
+        logger.info(f"[EMBEDDING_TASK] Conteúdo: '{message_content[:100]}...'")
 
         # Importa serviços necessários
         from agentgraph.services.embedding_service import get_embedding_service
@@ -1015,9 +1038,11 @@ def generate_message_embedding_task(self, message_content: str, chat_session_id:
 
             message_row = result.fetchone()
             if not message_row:
+                logger.warning(f"[EMBEDDING_TASK] Mensagem não encontrada para sessão {chat_session_id}")
                 return {"status": "error", "error": "Mensagem não encontrada"}
 
             message_id = message_row[0]
+            logger.info(f"[EMBEDDING_TASK] Mensagem encontrada: ID {message_id}")
 
             # Verifica se embedding já existe
             existing = db_session.execute(text("""
@@ -1026,11 +1051,14 @@ def generate_message_embedding_task(self, message_content: str, chat_session_id:
             """), {"message_id": message_id}).fetchone()
 
             if existing:
+                logger.info(f"[EMBEDDING_TASK] Embedding já existe para mensagem {message_id}")
                 return {"status": "skipped", "message": "Embedding já existe"}
 
             # Gera embedding
             embedding_service = get_embedding_service()
             embedding = embedding_service.get_embedding(message_content)
+
+            logger.info(f"[EMBEDDING_TASK] Embedding gerado: {len(embedding)} dimensões")
 
             # Salva embedding no banco
             db_session.execute(text("""
@@ -1043,7 +1071,7 @@ def generate_message_embedding_task(self, message_content: str, chat_session_id:
             })
 
             db_session.commit()
-            logger.info(f"[EMBEDDING_TASK] ✅ Embedding salvo: {message_id}")
+            logger.info(f"[EMBEDDING_TASK] ✅ Embedding salvo para mensagem {message_id}")
 
             return {
                 "status": "success",

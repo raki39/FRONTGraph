@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  # ClickHouse para testes
+  clickhouse-test:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    container_name: clickhouse-test
+    hostname: clickhouse-test
+    ports:
+      - "8123:8123"  # HTTP interface
+      - "9000:9000"  # Native protocol
+    environment:
+      # Configurações básicas
+      CLICKHOUSE_DB: test_db
+      CLICKHOUSE_USER: test_user
+      CLICKHOUSE_PASSWORD: test_password
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+      # FORÇAR execução dos scripts de inicialização SEMPRE
+      CLICKHOUSE_ALWAYS_RUN_INITDB_SCRIPTS: 1
+    volumes:
+      # Script de inicialização com dados de teste
+      - ./tests/clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    # NÃO usar volume nomeado para garantir que sempre inicialize do zero
+    tmpfs:
+      # Usar tmpfs (memória RAM) para dados - sempre limpo ao reiniciar
+      - /var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge
+

@@ -107,7 +107,25 @@ async def postgresql_connection_node(state: Dict[str, Any]) -> Dict[str, Any]:
         
         # Cria objeto SQLDatabase do LangChain (sempre com todas as tabelas para amostra)
         try:
-            db = SQLDatabase.from_uri(connection_uri)
+            # Para PostgreSQL, usar create_engine + SQLDatabase com warnings filtrados
+            import warnings
+            from sqlalchemy import create_engine as sa_create_engine
+            from langchain_community.utilities import SQLDatabase
+
+            # Cria engine com warnings filtrados (pgvector type warning)
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message=".*Did not recognize type.*")
+
+                pg_engine = sa_create_engine(
+                    connection_uri,
+                    pool_timeout=30,
+                    pool_recycle=3600,
+                    echo=False
+                )
+
+                # Cria SQLDatabase com engine
+                db = SQLDatabase(engine=pg_engine)
+
             logging.info("[POSTGRESQL_CONNECTION] SQLDatabase criado com sucesso")
 
             # Obtém informações do banco
@@ -118,7 +136,7 @@ async def postgresql_connection_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 warning_msg = "⚠️ Nenhuma tabela encontrada no banco de dados"
                 logging.warning(f"[POSTGRESQL_CONNECTION] {warning_msg}")
                 # Não é um erro fatal, mas avisa o usuário
-            
+
         except Exception as db_error:
             error_msg = f"Erro ao criar SQLDatabase: {str(db_error)}"
             logging.error(f"[POSTGRESQL_CONNECTION] {error_msg}")

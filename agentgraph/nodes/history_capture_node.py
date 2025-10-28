@@ -193,14 +193,17 @@ def history_capture_node_sync(state: Dict[str, Any]) -> Dict[str, Any]:
         success = True  # Simula sucesso para não quebrar o fluxo
         
         if success:
-            # Dispara task assíncrona para gerar embeddings
+            # ⚠️ EMBEDDINGS DESATIVADOS AQUI - São disparados em _capture_history_final_sync
+            # Evita duplicação de embeddings (estava gerando 2x para mensagem do usuário)
+            """
             _dispatch_embedding_generation_sync(
                 user_input=user_input,
                 response=response,
                 chat_session_id=chat_session_id
             )
-            
-            logger.info("[HISTORY_CAPTURE] ✅ Capturada")
+            """
+
+            logger.info("[HISTORY_CAPTURE] ✅ Capturada (embeddings serão disparados em _capture_history_final_sync)")
             state["history_captured"] = True
         else:
             logger.error("[HISTORY_CAPTURE] ❌ Falha")

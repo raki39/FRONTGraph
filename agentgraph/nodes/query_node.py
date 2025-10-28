@@ -51,23 +51,9 @@ async def process_user_query_node(state: Dict[str, Any]) -> Dict[str, Any]:
         
         # Recupera objetos necessários
         obj_manager = get_object_manager()
-        
-        # Recupera cache manager
-        cache_id = state.get("cache_id")
-        cache_manager = obj_manager.get_cache_manager(cache_id) if cache_id else None
-        
-        # CACHE TEMPORARIAMENTE DESATIVADO
-        # Verifica cache se disponível
-        if False:  # cache_manager:
-            cached_response = cache_manager.get_cached_response(user_input)
-            if cached_response:
-                logging.info(f"[CACHE] Retornando resposta do cache")
-                state.update({
-                    "response": cached_response,
-                    "execution_time": time.time() - start_time,
-                    "error": None
-                })
-                return state
+
+        # CACHE COMPLETAMENTE DESABILITADO
+        logging.info(f"[QUERY_NODE] ❌ CACHE DESABILITADO - Forçando nova execução")
         
         # Converte amostra do banco para DataFrame
         db_sample_dict = state.get("db_sample_dict", {})
@@ -217,9 +203,8 @@ async def process_user_query_node(state: Dict[str, Any]) -> Dict[str, Any]:
             if not sql_query_captured:
                 logging.warning("[QUERY] ⚠️ Nenhuma query SQL foi capturada pelo handler")
 
-        # Armazena no cache se disponível
-        if cache_manager and sql_result["success"]:
-            cache_manager.cache_response(user_input, state["response"])
+        # CACHE DESABILITADO: Não armazena respostas
+        logging.info(f"[QUERY_NODE] ❌ CACHE DESABILITADO - Não armazenando resposta")
 
         state["execution_time"] = time.time() - start_time
         logging.info(f"[QUERY] Concluído em {state['execution_time']:.2f}s")

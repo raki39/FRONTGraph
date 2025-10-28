@@ -62,7 +62,7 @@ async def cache_response_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     Nó para armazenar resposta no cache
 
-    CACHE COMPLETAMENTE DESABILITADO - Não armazena nada
+    ⚠️ CACHE TEMPORARIAMENTE DESATIVADO PARA TESTES DE CONSISTÊNCIA
 
     Args:
         state: Estado com resposta a ser cacheada
@@ -71,9 +71,36 @@ async def cache_response_node(state: Dict[str, Any]) -> Dict[str, Any]:
         Estado atualizado
     """
     try:
-        # CACHE DESABILITADO: Não armazena respostas
-        logging.info(f"[CACHE] ❌ CACHE DESABILITADO - Não armazenando resposta")
+        # CACHE DESATIVADO - Não salva nada
+        logging.info(f"[CACHE] ⚠️ DESATIVADO - Não salvando resposta para testes de consistência")
         state["cached"] = False
+        state["cache_disabled"] = True
+
+        # Código original comentado para fácil reativação
+        """
+        obj_manager = get_object_manager()
+        cache_id = state.get("cache_id")
+
+        if not cache_id:
+            logging.warning("[CACHE] ID do cache não encontrado")
+            return state
+
+        cache_manager = obj_manager.get_cache_manager(cache_id)
+        if not cache_manager:
+            logging.warning("[CACHE] Cache manager não encontrado")
+            return state
+
+        user_input = state.get("user_input", "")
+        response = state.get("response", "")
+
+        if user_input and response and not state.get("error"):
+            cache_manager.cache_response(user_input, response)
+            state["cached"] = True
+            logging.info(f"[CACHE] Resposta cacheada para: {user_input[:50]}...")
+        else:
+            state["cached"] = False
+            logging.info("[CACHE] Resposta não cacheada (erro ou dados insuficientes)")
+        """
 
     except Exception as e:
         error_msg = f"Erro ao cachear resposta: {e}"
@@ -171,7 +198,7 @@ async def check_cache_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     Nó para verificar se existe resposta em cache
 
-    CACHE COMPLETAMENTE DESABILITADO - Sempre retorna cache_hit=False
+    ⚠️ CACHE TEMPORARIAMENTE DESATIVADO PARA TESTES DE CONSISTÊNCIA
 
     Args:
         state: Estado com consulta do usuário
@@ -180,16 +207,46 @@ async def check_cache_node(state: Dict[str, Any]) -> Dict[str, Any]:
         Estado com resultado da verificação de cache
     """
     try:
-        # CACHE DESABILITADO: Sempre retorna False para forçar nova execução
-        logging.info(f"[CACHE] ❌ CACHE DESABILITADO - Forçando nova execução")
+        # CACHE DESATIVADO - Sempre retorna MISS
+        logging.info(f"[CACHE] ⚠️ DESATIVADO - Sempre retorna MISS para testes de consistência")
         state["cache_hit"] = False
-        
+        state["cache_disabled"] = True
+
+        # Código original comentado para fácil reativação
+        """
+        obj_manager = get_object_manager()
+        cache_id = state.get("cache_id")
+        user_input = state.get("user_input", "")
+
+        if not cache_id or not user_input:
+            state["cache_hit"] = False
+            return state
+
+        cache_manager = obj_manager.get_cache_manager(cache_id)
+        if not cache_manager:
+            state["cache_hit"] = False
+            return state
+
+        # Verifica cache
+        cached_response = cache_manager.get_cached_response(user_input)
+
+        if cached_response:
+            state["cache_hit"] = True
+            state["response"] = cached_response
+            state["execution_time"] = 0.0
+            state["error"] = None
+            logging.info(f"[CACHE] Hit para: {user_input[:50]}...")
+        else:
+            state["cache_hit"] = False
+            logging.info(f"[CACHE] Miss para: {user_input[:50]}...")
+        """
+
     except Exception as e:
         error_msg = f"Erro ao verificar cache: {e}"
         logging.error(f"[CACHE] {error_msg}")
         state["cache_hit"] = False
         state["cache_error"] = error_msg
-    
+
     return state
 
 

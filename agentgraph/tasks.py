@@ -237,12 +237,13 @@ def _generate_cache_key(agent_config: Dict[str, Any]) -> tuple:
 
 
 def _get_or_create_database(agent_config: Dict[str, Any]):
-    """Cria nova SQLDatabase a cada requisição (cache desabilitado para evitar reutilização de estado)."""
+    """Obtém ou cria SQLDatabase usando db_uri, com cache por processo."""
     from agentgraph.utils.database import create_sql_database
-
-    # CACHE DESABILITADO: Sempre criar novo database para evitar reutilização de estado
-    logging.info(f"[DB_CREATE] 🔄 Criando novo database (cache desabilitado)")
-
+    key = ("DB",) + _generate_cache_key(agent_config)
+    if key in _DB_REGISTRY:
+        logging.info(f"[CACHE] cache_hit DB para chave {_key_fingerprint(key)}")
+        return _DB_REGISTRY[key]
+    # cache miss
     db_uri = _build_db_uri_or_path(agent_config)
     logging.info(f"[DB_URI] Abrindo banco via db_uri: {db_uri}")
     # Se for SQLite local, garantir que o arquivo exista para não criar DB vazio
@@ -266,19 +267,19 @@ def _get_or_create_database(agent_config: Dict[str, Any]):
         logging.error(f"[DB_URI] Falha ao conectar em {db_uri}: {e}")
         raise
     db = create_sql_database(engine)
-    logging.info(f"[DB_CREATE] ✅ Database criado com sucesso")
+    _DB_REGISTRY[key] = db
+    logging.info(f"[CACHE] cache_miss DB; armazenado para chave {_key_fingerprint(key)}")
     return db
 
 
 def _get_or_create_sql_agent(agent_config: Dict[str, Any]):
-    """Cria novo SQLAgentManager a cada requisição (cache desabilitado para evitar reutilização de estado)."""
+    """Obtém ou cria SQLAgentManager com cache por processo, preservando ciclo nativo."""
     from agentgraph.agents.sql_agent import SQLAgentManager
-
-    # CACHE DESABILITADO: Sempre criar novo agente para evitar reutilização de estado
-    # que causava respostas duplicadas para perguntas similares
-    logging.info(f"[AGENT_CREATE] 🔄 Criando novo agente (cache desabilitado)")
-
-    # Cria DB (com cache)
+    key = ("AGENT",) + _generate_cache_key(agent_config)
+    if key in _AGENT_REGISTRY:
+        logging.info(f"[CACHE] cache_hit AGENT para chave {_key_fingerprint(key)}")
+        return _AGENT_REGISTRY[key]
+    # cache miss: cria DB (via cache) e agente
     db = _get_or_create_database(agent_config)
     single_table_mode = agent_config.get('single_table_mode', False)
     selected_table = agent_config.get('selected_table')
@@ -297,6 +298,8 @@ def _get_or_create_sql_agent(agent_config: Dict[str, Any]):
     )
 
     logging.info(f"[AGENT_CREATE] ✅ Agente criado com TOP_K: {agent.top_k}")
+    _AGENT_REGISTRY[key] = agent
+    logging.info(f"[CACHE] cache_miss AGENT; agente criado e armazenado para chave {_key_fingerprint(key)}")
     return agent
 
 @celery_app.task(bind=True, name='process_sql_query')
@@ -435,7 +438,9 @@ def process_sql_query_task(self, agent_id: str, user_input: str, meta: Optional[
 
         # 4. CAPTURAR HISTÓRICO NO FINAL (com todos os dados disponíveis)
         if chat_session_id and user_id_meta and run_id:
+            sql_query_to_save = result.get('sql_query')
             logging.info(f"[CELERY_TASK] 💾 Capturando histórico no final da task...")
+            logging.info(f"[CELERY_TASK] 📊 SQL Query para salvar: {sql_query_to_save[:100] if sql_query_to_save else 'None'}...")
             try:
                 _capture_history_final_sync(
                     user_id=user_id_meta,
@@ -443,7 +448,7 @@ def process_sql_query_task(self, agent_id: str, user_input: str, meta: Optional[
                     chat_session_id=chat_session_id,
                     user_input=user_input,
                     response=result.get('output', ''),
-                    sql_query=result.get('sql_query'),
+                    sql_query=sql_query_to_save,
                     run_id=run_id
                 )
                 logging.info(f"[CELERY_TASK] ✅ Histórico capturado com sucesso!")
@@ -811,9 +816,18 @@ def execute_langgraph_pipeline(user_input: str, agent_config: Dict[str, Any], ch
             }
         else:
             logging.info(f"[LANGGRAPH_PIPELINE] Execução bem-sucedida (LangGraph completo)")
+
+            # IMPORTANTE: O LangGraph retorna 'sql_query_extracted', não 'sql_query'
+            sql_query = result.get('sql_query_extracted') or result.get('sql_query')
+
+            if sql_query:
+                logging.info(f"[LANGGRAPH_PIPELINE] ✅ SQL Query capturada: {sql_query[:100]}...")
+            else:
+                logging.warning(f"[LANGGRAPH_PIPELINE] ⚠️ Nenhuma SQL query encontrada no resultado")
+
             return {
                 'output': result.get('response', ''),
-                'sql_query': result.get('sql_query'),
+                'sql_query': sql_query,
                 'intermediate_steps': result.get('intermediate_steps', []),
                 'success': True
             }

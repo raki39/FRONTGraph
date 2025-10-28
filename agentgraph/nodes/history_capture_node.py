@@ -288,7 +288,7 @@ async def _save_conversation_to_history(history_service, chat_session_id: int,
 def _save_conversation_to_history_sync(history_service, chat_session_id: int,
                                      user_input: str, response: str,
                                      sql_query: str = None, run_id: int = None) -> bool:
-    """Salva conversa no histórico (versão sync)"""
+    """Salva conversa no histórico (versão síncrona)"""
     try:
         from sqlalchemy import text
 
@@ -314,6 +314,7 @@ def _save_conversation_to_history_sync(history_service, chat_session_id: int,
         })
 
         user_message_id = user_message_result.fetchone()[0]
+        logger.info(f"[HISTORY_CAPTURE_SYNC] ✅ Mensagem do usuário salva (ID: {user_message_id})")
 
         # Salva resposta do assistente COM SQL query
         assistant_message_result = history_service.db_session.execute(text("""
@@ -324,11 +325,12 @@ def _save_conversation_to_history_sync(history_service, chat_session_id: int,
             "session_id": chat_session_id,
             "run_id": run_id,
             "content": response,
-            "sql_query": sql_query,
+            "sql_query": sql_query,  # ← SQL query vai para o campo correto
             "sequence": next_sequence + 1
         })
 
         assistant_message_id = assistant_message_result.fetchone()[0]
+        logger.info(f"[HISTORY_CAPTURE_SYNC] ✅ Resposta do assistente salva (ID: {assistant_message_id})")
 
         # Atualiza estatísticas da sessão (incrementa apenas 2 mensagens)
         history_service.db_session.execute(text("""
@@ -340,11 +342,11 @@ def _save_conversation_to_history_sync(history_service, chat_session_id: int,
 
         history_service.db_session.commit()
 
-        logger.info(f"[HISTORY_CAPTURE_SYNC] ✅ Conversa salva: user_msg_id={user_message_id}, asst_msg_id={assistant_message_id}")
+        logger.info(f"[HISTORY_CAPTURE_SYNC] ✅ Conversa salva com sucesso (Session: {chat_session_id})")
         return True
 
     except Exception as e:
-        logger.error(f"[HISTORY_CAPTURE_SYNC] Erro ao salvar conversa: {e}")
+        logger.error(f"[HISTORY_CAPTURE_SYNC] ❌ Erro ao salvar conversa: {e}")
         history_service.db_session.rollback()
         return False
 

@@ -288,9 +288,65 @@ async def _save_conversation_to_history(history_service, chat_session_id: int,
 def _save_conversation_to_history_sync(history_service, chat_session_id: int,
                                      user_input: str, response: str,
                                      sql_query: str = None, run_id: int = None) -> bool:
-    """FUNÇÃO DESABILITADA - Usar apenas versão ASYNC"""
-    logger.info("[HISTORY_CAPTURE_SYNC] DESABILITADA - usando apenas async")
-    return True  # Simula sucesso para não quebrar o fluxo
+    """Salva conversa no histórico (versão sync)"""
+    try:
+        from sqlalchemy import text
+
+        # Obtém próximo sequence_order
+        result = history_service.db_session.execute(text("""
+            SELECT COALESCE(MAX(sequence_order), 0) + 1
+            FROM messages
+            WHERE chat_session_id = :session_id
+        """), {"session_id": chat_session_id})
+
+        next_sequence = result.fetchone()[0]
+
+        # Salva mensagem do usuário
+        user_message_result = history_service.db_session.execute(text("""
+            INSERT INTO messages (chat_session_id, run_id, role, content, sql_query, sequence_order, created_at)
+            VALUES (:session_id, :run_id, 'user', :content, NULL, :sequence, NOW())
+            RETURNING id
+        """), {
+            "session_id": chat_session_id,
+            "run_id": run_id,
+            "content": user_input,
+            "sequence": next_sequence
+        })
+
+        user_message_id = user_message_result.fetchone()[0]
+
+        # Salva resposta do assistente COM SQL query
+        assistant_message_result = history_service.db_session.execute(text("""
+            INSERT INTO messages (chat_session_id, run_id, role, content, sql_query, sequence_order, created_at)
+            VALUES (:session_id, :run_id, 'assistant', :content, :sql_query, :sequence, NOW())
+            RETURNING id
+        """), {
+            "session_id": chat_session_id,
+            "run_id": run_id,
+            "content": response,
+            "sql_query": sql_query,
+            "sequence": next_sequence + 1
+        })
+
+        assistant_message_id = assistant_message_result.fetchone()[0]
+
+        # Atualiza estatísticas da sessão (incrementa apenas 2 mensagens)
+        history_service.db_session.execute(text("""
+            UPDATE chat_sessions
+            SET last_activity = NOW(),
+                total_messages = total_messages + 2
+            WHERE id = :session_id
+        """), {"session_id": chat_session_id})
+
+        history_service.db_session.commit()
+
+        logger.info(f"[HISTORY_CAPTURE_SYNC] ✅ Conversa salva: user_msg_id={user_message_id}, asst_msg_id={assistant_message_id}")
+        return True
+
+    except Exception as e:
+        logger.error(f"[HISTORY_CAPTURE_SYNC] Erro ao salvar conversa: {e}")
+        history_service.db_session.rollback()
+        return False
 
 
 async def _dispatch_embedding_generation(user_input: str, response: str, chat_session_id: int):

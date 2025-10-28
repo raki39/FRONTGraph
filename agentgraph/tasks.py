@@ -237,13 +237,12 @@ def _generate_cache_key(agent_config: Dict[str, Any]) -> tuple:
 
 
 def _get_or_create_database(agent_config: Dict[str, Any]):
-    """Obtém ou cria SQLDatabase usando db_uri, com cache por processo."""
+    """Cria nova SQLDatabase a cada requisição (cache desabilitado para evitar reutilização de estado)."""
     from agentgraph.utils.database import create_sql_database
-    key = ("DB",) + _generate_cache_key(agent_config)
-    if key in _DB_REGISTRY:
-        logging.info(f"[CACHE] cache_hit DB para chave {_key_fingerprint(key)}")
-        return _DB_REGISTRY[key]
-    # cache miss
+
+    # CACHE DESABILITADO: Sempre criar novo database para evitar reutilização de estado
+    logging.info(f"[DB_CREATE] 🔄 Criando novo database (cache desabilitado)")
+
     db_uri = _build_db_uri_or_path(agent_config)
     logging.info(f"[DB_URI] Abrindo banco via db_uri: {db_uri}")
     # Se for SQLite local, garantir que o arquivo exista para não criar DB vazio
@@ -267,19 +266,19 @@ def _get_or_create_database(agent_config: Dict[str, Any]):
         logging.error(f"[DB_URI] Falha ao conectar em {db_uri}: {e}")
         raise
     db = create_sql_database(engine)
-    _DB_REGISTRY[key] = db
-    logging.info(f"[CACHE] cache_miss DB; armazenado para chave {_key_fingerprint(key)}")
+    logging.info(f"[DB_CREATE] ✅ Database criado com sucesso")
     return db
 
 
 def _get_or_create_sql_agent(agent_config: Dict[str, Any]):
-    """Obtém ou cria SQLAgentManager com cache por processo, preservando ciclo nativo."""
+    """Cria novo SQLAgentManager a cada requisição (cache desabilitado para evitar reutilização de estado)."""
     from agentgraph.agents.sql_agent import SQLAgentManager
-    key = ("AGENT",) + _generate_cache_key(agent_config)
-    if key in _AGENT_REGISTRY:
-        logging.info(f"[CACHE] cache_hit AGENT para chave {_key_fingerprint(key)}")
-        return _AGENT_REGISTRY[key]
-    # cache miss: cria DB (via cache) e agente
+
+    # CACHE DESABILITADO: Sempre criar novo agente para evitar reutilização de estado
+    # que causava respostas duplicadas para perguntas similares
+    logging.info(f"[AGENT_CREATE] 🔄 Criando novo agente (cache desabilitado)")
+
+    # Cria DB (com cache)
     db = _get_or_create_database(agent_config)
     single_table_mode = agent_config.get('single_table_mode', False)
     selected_table = agent_config.get('selected_table')
@@ -298,8 +297,6 @@ def _get_or_create_sql_agent(agent_config: Dict[str, Any]):
     )
 
     logging.info(f"[AGENT_CREATE] ✅ Agente criado com TOP_K: {agent.top_k}")
-    _AGENT_REGISTRY[key] = agent
-    logging.info(f"[CACHE] cache_miss AGENT; agente criado e armazenado para chave {_key_fingerprint(key)}")
     return agent
 
 @celery_app.task(bind=True, name='process_sql_query')

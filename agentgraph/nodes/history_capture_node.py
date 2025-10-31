@@ -12,24 +12,34 @@ logger = logging.getLogger(__name__)
 async def history_capture_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """
     Nó para capturar e armazenar a conversa no histórico
-    
+
+    ⚠️ DESABILITADO - Histórico é capturado em _capture_history_final_sync (tasks.py)
+    Evita duplicação de mensagens no banco de dados
+
     Args:
         state: Estado atual do LangGraph com resposta processada
-        
+
     Returns:
         Estado atualizado com informações de captura
     """
     try:
+        # ⚠️ NÓ DESABILITADO - Apenas simula sucesso para não quebrar o fluxo
+        logger.info("[HISTORY_CAPTURE] ⚠️ Nó DESABILITADO - Histórico será capturado em _capture_history_final_sync")
+        state["history_captured"] = True  # Simula sucesso
+        return state
+
+        # Código original comentado para evitar duplicação
+        """
         # Verifica se o histórico está habilitado
         from agentgraph.services.history_service import get_history_service
-        
+
         history_service = get_history_service()
-        
+
         if not history_service.is_enabled():
             # Histórico desabilitado
             state["history_captured"] = False
             return state
-        
+
         # Extrai informações do state
         user_id = state.get("user_id")
         agent_id = state.get("agent_id")
@@ -37,14 +47,14 @@ async def history_capture_node(state: Dict[str, Any]) -> Dict[str, Any]:
         response = state.get("response", "")
         sql_query = state.get("sql_query_extracted") or state.get("sql_query")
         run_id = state.get("run_id")
-        
+
         if not user_id or not agent_id or not user_input:
             logger.warning("[HISTORY_CAPTURE] Informações insuficientes para capturar histórico")
             state["history_captured"] = False
             return state
-        
+
         # Captura iniciada
-        
+
         # Obtém ou cria sessão de chat
         chat_session_id = state.get("chat_session_id")
         if not chat_session_id:
@@ -56,12 +66,12 @@ async def history_capture_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 title=title
             )
             state["chat_session_id"] = chat_session_id
-        
+
         if not chat_session_id:
             logger.error("[HISTORY_CAPTURE] Falha ao obter/criar sessão de chat")
             state["history_captured"] = False
             return state
-        
+
         # Salva mensagens no histórico (ASYNC - CORRETO PARA APIs)
         success = await _save_conversation_to_history(
             history_service=history_service,
@@ -71,7 +81,7 @@ async def history_capture_node(state: Dict[str, Any]) -> Dict[str, Any]:
             sql_query=sql_query,
             run_id=run_id
         )
-        
+
         if success:
             # Dispara task assíncrona para gerar embeddings
             await _dispatch_embedding_generation(
@@ -79,25 +89,26 @@ async def history_capture_node(state: Dict[str, Any]) -> Dict[str, Any]:
                 response=response,
                 chat_session_id=chat_session_id
             )
-            
+
             logger.info("[HISTORY_CAPTURE] ✅ Capturada")
             state["history_captured"] = True
         else:
             logger.error("[HISTORY_CAPTURE] ❌ Falha")
             state["history_captured"] = False
-        
+
         # Cleanup
         history_service.close()
-        
+
         return state
-        
+        """
+
     except Exception as e:
         error_msg = f"Erro na captura de histórico: {e}"
         logger.error(f"[HISTORY_CAPTURE] ❌ {error_msg}")
-        
+
         state["history_captured"] = False
         state["history_capture_error"] = error_msg
-        
+
         return state
 
 
